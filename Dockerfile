@@ -51,7 +51,5 @@ RUN cat /tmp/bashrc-addition >> /etc/bash.bashrc && \
 USER tux
 
 # Run Xephyr in the background with the desired screen resolution
-CMD cinnamon-session & \
-    sleep 2 && \
-    xrandr --output default --mode 1280x720 && \
-    /bin/bash
+# To change Xephyr window size after starting cinnamon-session: xrandr --output default --mode 1280x720
+CMD ["/bin/bash"]
