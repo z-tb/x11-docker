@@ -50,7 +50,7 @@ This will start a container named `x11-test`. You can customize the container na
 
 ## Running in Xephyr X11 Environment
 
-To run the Docker container in a Xephyr X11 environment with Cinnamon and a specific screen resolution (1280x720), use the following command:
+To run the Docker container in a Xephyr X11 environment with Cinnamon and a specific screen resolution (1280x720), use the following command. Note: you will need Xephyr installed on the Docker host beforehand:
 
 ```bash
 make xrunx
@@ -60,7 +60,7 @@ This command starts Xephyr in the background, launches the Docker container with
 
 ## Running with Host Display
 
-To run the Docker container using the host display, use the following command:
+To run the Docker container using the host display, use the following command. Note: You will need to allow X connections to your Docker host display. `xhost +` works, but also allows remote and local connections to your X server so beware:
 
 ```bash
 make runx
