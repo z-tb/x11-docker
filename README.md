@@ -60,7 +60,7 @@ This command starts Xephyr in the background, launches the Docker container with
 
 ## Running with Host Display
 
-To run the Docker container using the host display, use the following command. Note: You will need to allow X connections to your Docker host display. `xhost +` works, but also allows remote and local connections to your X server so beware:
+To run the Docker container using the host display, use the following command. Note: You will need to allow X connections to your Docker host display. `xhost +SI:localuser:some_allowed_user` should accomplish this with `xhost +` being much more permissive, but may allow (depending on other access controls) any remote and local connections to connect to your X server so beware:
 
 ```bash
 make runx
