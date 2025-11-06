@@ -87,3 +87,12 @@ function pcol() {
 
 export EDITOR=vim
 
+
+# System-wide symlinks for mounted home dirs and Kiro, but no for roo
+if [ -n "$PS1" ] && [ "$UID" -ne 0 ]; then
+    [ -d "/mnt/${USER}/.ssh" ] && [ ! -L "$HOME/.ssh" ] && ln -sf "/mnt/${USER}/.ssh" "$HOME/.ssh"
+    [ -f "/mnt/${USER}/.gitconfig" ] && [ ! -L "$HOME/.gitconfig" ] && ln -sf "/mnt/${USER}/.gitconfig" "$HOME/.gitconfig"
+    [ -d "/mnt/${USER}/.kiro" ] && [ ! -L "$HOME/.kiro" ] && ln -sf "/mnt/${USER}/.kiro" "$HOME/.kiro"
+    [ -d "/mnt/${USER}/.config/pulse" ] && [ ! -L "$HOME/.config/pulse" ] && ln -sf "/mnt/${USER}/.config/pulse" "$HOME/.config/pulse"
+fi
+

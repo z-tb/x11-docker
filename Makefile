@@ -7,7 +7,7 @@ IMAGE_NAME       := x11-image
 CONTAINER_NAME   := x11-test
 
 # Host and container paths
-HOST_PATH        := ./apps
+HOST_PATH        := $(HOME)/apps
 CONT_APP_MNT     := /apps
 
 # User info
@@ -109,13 +109,15 @@ runx2:
 		-v /usr/share/alsa:/usr/share/alsa:ro \
 		-v $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
 		-v /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
-		-e PULSE_SERVER=unix:/run/user/$(shell id -u)/pulse/native \
+		-e PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
 		-v $(HOST_PATH):/apps:rw \
 		--gpus all \
 		-v /dev/dri:/dev/dri \
-		--user $(shell id -u):$(shell id -g) \
+		--user $(USER_UID):$(USER_GROUP_GID) \
 		--group-add $(DOCKER_GID) \
 		$(IMAGE_NAME) /bin/bash
+
+
 
 
 # ----------------------------------------------------------------------
