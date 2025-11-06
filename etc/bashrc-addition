@@ -35,22 +35,30 @@ PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/home/shell"
 test -d ~/bin && PATH="$PATH:~/bin"
 export PATH
 
+#------------------------------------------------------------------
 # directory navigation
+#------------------------------------------------------------------
 alias ds="find .  -maxdepth 1 -type d -exec du -smh '{}' \;"
 alias dri="ls -lart --color=auto"
 alias dir="ls -lart --color=auto"
-# iptables 
+#------------------------------------------------------------------
+# iptables - but probably not installed in the container
+#------------------------------------------------------------------
 alias ipt="iptables --line-numbers -nvL"
 alias ipn="iptables --line-numbers -nvL -t nat"
 alias ipt6="ip6tables --line-numbers -nvL"
 alias ipn6="ip6tables --line-numbers -nvL -t nat"
+#------------------------------------------------------------------
 # command line helpers
+#------------------------------------------------------------------
 alias ns="netstat -topnavelu"
 alias dmesg="dmesg -T"
 alias shad='ssh-add  ~/.ssh/*_[erd]*sa'
 alias rm="rm -v"
 alias cp="cp -v"
+#------------------------------------------------------------------
 # git aliases
+#------------------------------------------------------------------
 alias gbr="git branch -a"
 alias gco="git checkout"
 alias gst="git status -s"
@@ -60,8 +68,16 @@ alias gpush='git push origin `get_git_branch`; git push origin --tags'
 alias gpusha='git push --all origin'
 alias glog='git log --pretty --oneline'
 
+#------------------------------------------------------------------
+# apps
+#------------------------------------------------------------------
+# kiro can only run this way in the container
+alias ks="kiro --no-sandbox"
 
-# color prompt - run pcol
+
+#------------------------------------------------------------------
+# color prompt - run pcol from ~/.bashrc to activate
+#------------------------------------------------------------------
 function pcol() {
     PCHAR='$'; UC='\[\e[0;36;40m\]'
     if [ `id -u` -eq 0 ]; then PCHAR='#'; UC='\[\e[1;33;41m\]'; else UC='\[\e[0;36;40m\]'; fi
@@ -85,14 +101,21 @@ function pcol() {
     export PS1
 }
 
+#------------------------------------------------------------------
+# nano and emacs?? Of course not!
+#------------------------------------------------------------------
 export EDITOR=vim
 
 
-# System-wide symlinks for mounted home dirs and Kiro, but no for roo
+#------------------------------------------------------------------
+# System-wide symlinks for mounted home dirs and Kiro, but not for root
+#------------------------------------------------------------------
 if [ -n "$PS1" ] && [ "$UID" -ne 0 ]; then
-    [ -d "/mnt/${USER}/.ssh" ] && [ ! -L "$HOME/.ssh" ] && ln -sf "/mnt/${USER}/.ssh" "$HOME/.ssh"
-    [ -f "/mnt/${USER}/.gitconfig" ] && [ ! -L "$HOME/.gitconfig" ] && ln -sf "/mnt/${USER}/.gitconfig" "$HOME/.gitconfig"
-    [ -d "/mnt/${USER}/.kiro" ] && [ ! -L "$HOME/.kiro" ] && ln -sf "/mnt/${USER}/.kiro" "$HOME/.kiro"
-    [ -d "/mnt/${USER}/.config/pulse" ] && [ ! -L "$HOME/.config/pulse" ] && ln -sf "/mnt/${USER}/.config/pulse" "$HOME/.config/pulse"
+    [ -d "/mnt/${USER}/.ssh" ]            && [ ! -L "$HOME/.ssh" ]            && ln -s "/mnt/${USER}/.ssh" "$HOME/.ssh"
+    [ -f "/mnt/${USER}/.gitconfig" ]      && [ ! -L "$HOME/.gitconfig" ]      && ln -s "/mnt/${USER}/.gitconfig" "$HOME/.gitconfig"
+    [ -d "/mnt/${USER}/.kiro" ]           && [ ! -L "$HOME/.kiro" ]           && ln -s "/mnt/${USER}/.kiro" "$HOME/.kiro"
+    [ -d "/mnt/${USER}/.config/pulse" ]   && [ ! -L "$HOME/.config/pulse" ]   && ln -s "/mnt/${USER}/.config/pulse" "$HOME/.config/pulse"
 fi
+
+
 
