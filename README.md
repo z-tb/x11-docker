@@ -1,95 +1,180 @@
-# X11 Dockerized Environment with Xephyr
+# Dockerized X11 Environment with PulseAudio, GPU, and Kiro IDE Support
 
-This project provides a Dockerized development environment capable of displaying X11 output within a Xephyr window. The environment includes LXDE, a lightweight X11 environment and Cinnamon, a more aesthetic, and resource intensive, desktop. 
+This project provides a Dockerized development environment capable of running X11 graphical applications, desktop environments (Cinnamon or LXDE), and optionally the Amazon Kiro IDE. The environment supports running applications inside a Docker container with:
 
-The Dockerfile sets up a X11 based on the official Ubuntu 20.04 image. This includes a non-root user with sudo access (`tux`), support for running graphical applications, and the support software for the desktops. It is designed for developers who need a Dockerized GUI for testing and development purposes. 
+* Host or virtual X11 forwarding (Xephyr or host display - this depends on branch)
+* PulseAudio/ALSA audio support
+* GPU passthrough (if available, Kiro branch only)
+* Volume mounting for persistence
+* Optional Kiro IDE installation (Kiro branch)
 
-Audio support was a consideration that crossed my mind, so incorporated a few elements into the Dockerfile to initiate the process. It needs more configuration to be functional.
+This started as a project using Xephyr for a dedicated X display which is faster than VNC, but difficult to use cut-and-paste with. Using `ssh -X` to display remote X apps is fine too, but there can be some limitations and latency with the compression and ciphers. The X11 pass-through was the next idea so I've split this into two branches. It's really designed for those who need a consistent X11 environment (or one managed by a security team) for testing, development, or experimentation.  I am not sure this will work with Windows or Mac. It's more likely with Xephyr, less likely with X11 sockets.
 
-Using the `xrunx` target will start a Xephyr window on the host, and bash shell in the container. All X output goes to the Xephyr window. Initially, I was using the host X server for displaying things but this can affect desktop resource themes, fonts, etc so I opted for Xephyr. There might be some X leftovers in the Makefile which aren't needed any more. If the Xephyr window is too big after starting `cinnamon-session`, use `xrandr` with something like `xrandr --output default --mode 1280x720` to de-biggen it.
+---
 
-## Dockerfile:
+## Purpose / Security-minded rationale
 
-- Creates a non-root user (`tux`) with `/bin/bash` as the default shell.
-- Grants sudo access to the `tux` user (need to use `newgrp` first for some reason I don't understand)
-- Sets up a working directory at `/app` (shared between host and container if using volume mount target)
-- Installs packages for X and some extras like vim and nano, chromium-browser, cinnamon, dbus, firefox, etc.
-- Adds the `tux` user to the sudoers group with passwordless sudo access.
-- Appends custom bash code from `/tmp/bashrc-addition` to `/etc/bash.bashrc`.
-- Switches to the non-root user `tux` for the container shell.
-- Specifies the default command to run when the container starts as `/bin/bash`.
+This setup is designed for better isolation of applications and data instead of just running an application blindly on a host system and hoping everything is fine (you know, the way we've been doing it). Malicious extensions and plugins are becoming more common vectors for compromise, and running an AI stack within easy reach of data not intended for the LLM has become commonplace. This project attempts to narrow the opportunities for those attack surfaces by isolating the data and application runtime inside a container.  
 
-Please note that running a full desktop environment inside a Docker container is unconventional and might have limitations depending on your environment and security policies. This Dockerfile is intended for experimentation, testing, and development purposes. Use it with caution and adapt it according to your specific requirements.
+That said, this is still subject to all the regular foot‑guns of Docker. The user who builds the container has their UID replicated inside the container, and when the container is started the build user's home directory is mounted (mostly) read‑only under `/mnt/home/$USER`. The `~/.kiro` directory is mounted read‑write for persistence, as is the `/apps` directory. The `sudo` package is installed to make it easier for the user to administer the container for experimentation or investigation — this is an obvious opportunity for compromise, so you may wish to disable it. Be aware Docker itself introduces additional attack surfaces that could be exercised if malicious software runs inside the container; these vectors are becoming easier to exploit as automation and AI tools improve. Having isolation and consistency is a good first step for safe development workflows, but it is not a complete security boundary.
+
+---
+
+## Features
+
+* Non-root user created in the container, matching host UID/GID to avoid permission issues.
+* Passwordless sudo for the non-root user (adjustable if you prefer).
+* Cinnamon and LXDE desktops installed because I couldn't make up my mind.
+* Optional installation of Amazon Kiro IDE (`WITH_KIRO=1`).
+* Forward X11 display and PulseAudio for graphical and audio applications.
+* GPU passthrough support via Docker `--gpus all`.
+* Volume mounts for `/apps`, home directories, and Kiro configuration.
+
+**Home directory mounts and symlinks (persistence behavior):**
+* The build process creates a user inside the container with the same UID/GID as the builder.
+* The container expects the build user's home to be mounted under `/mnt/$USER_HOME` (host → container). The README/Makefile symlinks point the container user to those mount targets.
+* Symlinks created in the container (examples):
+  * `~/.ssh` → `/mnt/$USER_HOME/.ssh` (intended to be mounted **read‑only** `:ro` for safety)
+  * `~/.gitconfig` → `/mnt/$USER_HOME/.gitconfig` (commonly mounted **read‑only** `:ro`)
+  * `~/.kiro` → `/mnt/$USER_HOME/.kiro` (mounted **read‑write** `:rw` to persist Kiro settings)
+* The `/apps` directory inside the container is mounted from the host (host `./apps` → container `/apps`) and is expected to be **read‑write** `:rw` so you can edit/build projects there.
+* Persistence and access semantics depend entirely on how you mount the host directories when running the container — some mounts in the examples are intended to be `:ro` and others `:rw`. Verify and adjust your run target flags to match your security and workflow needs.
+
+**Important:** The host-side `apps` directory **must exist** before running `make runm`, `make runx`, `make runx2` or `make xrunx` — Docker will create an empty directory when binding a host path that does not exist, but failing to intentionally create/prepare it may lead to surprises.
+
+---
+
+## Prerequisites
+
+* Docker 24+ installed on the host
+* Xephyr installed on the host (for Xephyr branch/`xrunx` target) 
+* PulseAudio running on the host (for audio forwarding)
+* Optional NVIDIA GPU with `nvidia-container-toolkit` installed for GPU passthrough (Kiro branch)
+
+---
+
 ## Building the Docker Image
 
-To build the Docker image, run the following command:
+Build the image with:
 
 ```bash
 make build
 ```
 
-This will create an image named `x11-image`.
+This creates an image named `x11-image:latest`.
 
-## Rebuilding the Docker Image
-
-If you need to rebuild the Docker image without using cached layers, use the following command:
+To rebuild without cache:
 
 ```bash
 make rebuild
 ```
 
+---
+
 ## Running the Docker Container
 
-To run the Docker container in an interactive mode, use the following command:
+### 1. Interactive shell (basic)
 
 ```bash
 make run
 ```
 
-This will start a container named `x11-test`. You can customize the container name by modifying the `CONTAINER_NAME` variable in the Makefile.
+Starts a container named `x11-test` with a bash shell.
 
-## Running in Xephyr X11 Environment
-
-To run the Docker container in a Xephyr X11 environment with Cinnamon and a specific screen resolution (1280x720), use the following command. Note: you will need Xephyr installed on the Docker host beforehand:
-
-```bash
-make xrunx
-```
-
-This command starts Xephyr in the background, launches the Docker container with X11 display forwarding, and sets up necessary volume mounts. You can customize the screen resolution by modifying the `Xephyr` command in the Makefile.
-
-## Running with Host Display
-
-To run the Docker container using the host display, use the following command. Note: You will need to allow X connections to your Docker host display. `xhost +SI:localuser:some_allowed_user` should accomplish this with `xhost +` being much more permissive, but may allow (depending on other access controls) any remote and local connections to connect to your X server so beware:
-
-```bash
-make runx
-```
-
-This command forwards the host display to the Docker container, allowing it to interact with the host X11 server.
-
-## Running with Volume Mount
-
-To run the Docker container with volume mounting, use the following command:
+### 2. Volume-mounted shell
 
 ```bash
 make runm
 ```
 
-This command mounts the `./app` directory from the host to `/app/` in the container and opens a bash shell.
+Mounts the host `./apps` folder to `/apps` inside the container for persistent work and starts a bash shell. Ensure `./apps` exists on the host before running.
 
-## Stopping the Docker Container
+---
 
-To stop the running Docker container, use the following command:
+## Running with X11
+
+### Host X11 display
+
+```bash
+make runx
+```
+
+* Forwards the host `DISPLAY` into the container.
+* Forwards PulseAudio/ALSA for audio (example mounts shown in Makefile).
+* Runs the container as your host UID/GID to reduce permission friction.
+
+### Host X11 + GPU + Kiro IDE
+
+```bash
+make runx2
+```
+
+* Forwards X11 and PulseAudio/ALSA
+* Enables GPU passthrough (`--gpus all`)
+* Mounts the home directory and Kiro config for persistence
+* Installs Kiro IDE when `WITH_KIRO=1` is set in the Makefile
+
+---
+
+## Running in a Xephyr virtual X11 server
+
+```bash
+make xrunx
+```
+
+* Starts a Xephyr virtual display (`:1`) with resolution 1280x720
+* Forwards X11 and PulseAudio to the container
+* Useful to isolate the container desktop from the host desktop environment
+* Adjust resolution after startup with:
+
+```bash
+xrandr --output default --mode 1280x720
+```
+
+---
+
+## Stopping and Cleaning
+
+Stop the running container:
 
 ```bash
 make stop
 ```
 
-## Cleaning Up
-
-To remove the Docker container and image, use the following command:
+Remove container and image:
 
 ```bash
 make clean
 ```
+
+---
+
+## Notes & tips
+
+* The Dockerfile targets **Ubuntu 24.04**.
+* Kiro IDE installation is optional and controlled via `WITH_KIRO` build argument in the Makefile.
+* Symlinks inside the container point to `/mnt/$USER_HOME/*` targets; the security and persistence semantics follow how you mount those host paths (read‑only vs read‑write). Double‑check your `docker run` flags if you need stricter controls.
+* If you do not want `sudo` in the container, remove it from the Dockerfile or adjust the created sudoers file — but remember many troubleshooting tasks become easier with it available.
+* Running a full desktop environment in Docker is unconventional — treat this as a reproducible development/testing environment rather than a hardened production appliance.
+* GPU passthrough requires proper host-side configuration (nvidia drivers, `nvidia-container-toolkit`, etc.).
+
+---
+
+## Makefile Targets Summary
+
+| Target      | Description |
+|-------------|------------|
+| `build`     | Build Docker image with default args |
+| `rebuild`   | Build Docker image without cache |
+| `run`       | Run container interactively |
+| `runm`      | Run container with `/apps` volume mount (host `./apps` → container `/apps`) |
+| `runx`      | Run container with host X11 and PulseAudio |
+| `runx2`     | Run container with X11, PulseAudio, GPU, and optional Kiro |
+| `xrunx`     | Run container inside Xephyr virtual X11 server |
+| `stop`      | Stop running container |
+| `clean`     | Remove container and image |
+
+---
+
+If you'd like, I can also add a short "Quick Start" at the top showing the minimal sequence of commands for a new user (build → runm → open Cinnamon), or generate a small diagram that visualizes which mounts are `:ro` vs `:rw` and how the symlinks resolve to `/mnt/$USER_HOME`. Which would you prefer?
+
