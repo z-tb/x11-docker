@@ -110,11 +110,12 @@ export EDITOR=vim
 #------------------------------------------------------------------
 # System-wide symlinks for mounted home dirs and Kiro, but not for root
 #------------------------------------------------------------------
-if [ -n "$PS1" ] && [ "$UID" -ne 0 ]; then
-    [ -d "/mnt/${USER}/.ssh" ]            && [ ! -L "$HOME/.ssh" ]            && ln -s "/mnt/${USER}/.ssh" "$HOME/.ssh"
-    [ -f "/mnt/${USER}/.gitconfig" ]      && [ ! -L "$HOME/.gitconfig" ]      && ln -s "/mnt/${USER}/.gitconfig" "$HOME/.gitconfig"
-    [ -d "/mnt/${USER}/.kiro" ]           && [ ! -L "$HOME/.kiro" ]           && ln -s "/mnt/${USER}/.kiro" "$HOME/.kiro"
-    [ -d "/mnt/${USER}/.config/pulse" ]   && [ ! -L "$HOME/.config/pulse" ]   && ln -s "/mnt/${USER}/.config/pulse" "$HOME/.config/pulse"
+if [ "$UID" -ne 0 ]; then
+    [ -d "/mnt/home/${USER}/.ssh" ]            && [ ! -L "$HOME/.ssh" ]            && ln -s "/mnt/home/${USER}/.ssh"             "$HOME/.ssh"
+    [ -f "/mnt/home/${USER}/.gitconfig" ]      && [ ! -L "$HOME/.gitconfig" ]      && ln -s "/mnt/home/${USER}/.gitconfig"       "$HOME/.gitconfig"
+    [ -d "/mnt/home/${USER}/.kiro" ]           && [ ! -L "$HOME/.kiro" ]           && ln -s "/mnt/home/${USER}/.kiro"            "$HOME/.kiro"
+    [ -d "/mnt/home/${USER}/.config/pulse" ]   && [ ! -L "$HOME/.config/pulse" ]   && ln -s "/mnt/home/${USER}/.config/pulse"    "$HOME/.config/pulse"
+    [ -d "/mnt/home/${USER}/.config/Kiro" ]    && [ ! -L "$HOME/.config/Kiro" ]    && ln -s "/mnt/home/${USER}/.config/Kiro"     "$HOME/.config/Kiro"
 fi
 
 

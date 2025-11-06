@@ -78,6 +78,7 @@ clean:
 runx:
 	docker run -it --rm \
 		-e DISPLAY=$(DISPLAY) \
+		-e USER=$(USER_NAME) \
 		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
 		-v $(HOST_PATH):/apps:rw \
 		-v /etc/alsa:/etc/alsa:ro \
@@ -98,12 +99,14 @@ runx:
 #  * forward group for Docker socket if needed
 #  * mount ~/.kiro RW for Kiro settings persistence
 runx2:
-	docker run -it --rm \
+	docker run -it --rm --shm-size=1g \
 		--name $(CONTAINER_NAME) \
 		--hostname $(IMAGE_NAME) \
 		-e DISPLAY=$(DISPLAY) \
+		-e USER=$(USER_NAME) \
 		-v ${USER_HOME}:/mnt/${USER_HOME}:ro \
 		-v ${USER_HOME}/.kiro:/mnt/${USER_HOME}/.kiro:rw \
+		-v ${USER_HOME}/.config/Kiro:/mnt/${USER_HOME}/.config/Kiro:rw \
 		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
 		-v /etc/alsa:/etc/alsa:ro \
 		-v /usr/share/alsa:/usr/share/alsa:ro \
@@ -128,6 +131,7 @@ xrunx:
 	Xephyr :1 -ac -screen 1280x720 & \
 	docker run -it --rm \
 		-e DISPLAY=:1 \
+		-e USER=$(USER_NAME) \
 		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
 		-v $(HOST_PATH):/app:rw \
 		-v /etc/alsa:/etc/alsa:ro \

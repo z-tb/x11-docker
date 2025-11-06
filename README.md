@@ -8,19 +8,36 @@ This project provides a Dockerized development environment capable of running X1
 * Volume mounting for persistence
 * Optional Kiro IDE installation (Kiro branch)
 
-This started as a project using Xephyr for a dedicated X display which is faster than VNC, but difficult to use cut-and-paste with. Using `ssh -X` to display remote X apps is fine too, but there can be some limitations and latency with the compression and ciphers. The X11 pass-through was the next idea so I've split this into two branches. It's really designed for those who need a consistent X11 environment (or one managed by a security team) for testing, development, or experimentation.  I am not sure this will work with Windows or Mac. It's more likely with Xephyr, less likely with X11 sockets.
+
+This started as a project using [Xephyr](https://www.x.org/archive/X11R7.5/doc/man/man1/Xephyr.1.html#toc7) for a dedicated X display which is faster than VNC, but difficult to use cut-and-paste with. Using `ssh -X` to display remote X apps is fine too, but there can be some limitations and latency with the compression and ciphers. The X11 pass-through was the next idea so I've split this into two branches. It's really designed for those who need a consistent X11 environment (or one managed by a security team) for testing, development, or experimentation.  I am not sure this will work with Windows or Mac. It's more likely with Xephyr, less likely with X11 sockets.
+
+This isn't limited to Kiro. It would likely work for other X applications as well. Sound support is available from the container also but I added it as a curiosity rather than out of need.
 
 ---
 
 ## Purpose / Security-minded rationale
 
-This setup is designed for better isolation of applications and data instead of just running an application blindly on a host system and hoping everything is fine (you know, the way we've been doing it). Malicious extensions and plugins are becoming more common vectors for compromise, and running an AI stack within easy reach of data not intended for the LLM has become commonplace. This project attempts to narrow the opportunities for those attack surfaces by isolating the data and application runtime inside a container.  
+This setup is designed for better isolation of applications and data instead of just running an application blindly on a host system and hoping everything is fine (you know, the way we've been doing it). Malicious extensions and plugins are becoming more common, and running an AI stack within easy reach of data is becoming commonplace. This project attempts to narrow the opportunities for those attack surfaces by isolating the data and application runtime inside a container.  
 
-That said, this is still subject to all the regular foot‑guns of Docker. The user who builds the container has their UID replicated inside the container, and when the container is started the build user's home directory is mounted (mostly) read‑only under `/mnt/home/$USER`. The `~/.kiro` directory is mounted read‑write for persistence, as is the `/apps` directory. The `sudo` package is installed to make it easier for the user to administer the container for experimentation or investigation — this is an obvious opportunity for compromise, so you may wish to disable it. Be aware Docker itself introduces additional attack surfaces that could be exercised if malicious software runs inside the container; these vectors are becoming easier to exploit as automation and AI tools improve. Having isolation and consistency is a good first step for safe development workflows, but it is not a complete security boundary.
+That said, this is still subject to all the regular foot‑guns of Docker. Some steps that are taken to remedy some of the common docker problems:
+* A user account is created in the container using the build user UID/GID/USER so starting the container isn't just a root shell.
+* At runtime, the user running the container gets their home directory mounted (mostly) read‑only under `/mnt/home/$USER` for easier use of persistent data, permissions, user, group, etc.
+* The `~/.kiro` directory is mounted read‑write for persistence, as is the `/apps` directory.
+* The `sudo` package is installed to make it easier to administer/experiment/investigate inside the container
 
-All this being what it is, there are two notable security related work-arounds needed to get Kiro to run in the container. The first involes Chromium.
-Kiro uses it for sign-on but the only available Chromium package is a Ubuntu "Snap" which has it's own set of security issues. To get around this, I am adding the [Xtradb](https://launchpad.net/~xtradeb/+archive/ubuntu/apps) repo in the container and pulling Chromium in that way. The additional note here is that Chromium has become super dependendent on system features which don't work the same way in Docker without turning the container into little more than a root shell. Chromium must be started with `--no-sandbox` and the launcher script is modified to start it this way so Kiro can use it. While this would be unacceptable on a host system, I think it's less of a concern in a container where isolation from the host system is kind of the whole point. I would not recommend using it for anything else besides logging into Kiro. If it pops up for some reason, like installing a Kiro exension, be super careful. 
-The second work-around is Kiro must also be started with `--no-sandbox` since it's using Chromium itself. A system alias in `/etc/bash.bashrc` will give you a `ks` alias to start it easily. You can also type `kiro --no-sandbox` if you like typing but be aware that simply running `kiro` will just get you a blank stare from your terminal.
+Be aware Docker itself introduces attack surfaces that could be exercised if malicious software runs inside the container; these vectors are becoming easier to exploit as automation and AI tools improve. Having isolation and consistency is a good first step for safe development workflows, but it is not a complete security boundary. Still, it's better than just trusting fate.
+
+All this being what it is, there are two notable security related work-arounds needed to get Kiro to run in the container:
+* The Chromium startup script is modified to start using `--no-sandbox`
+* Kiro must be started using `--no-sandbox` (or use the `ks` alias defined in `/etc/bash.bashrc`)
+
+Kiro uses Chromium for sign-on but the only available Chromium package on Ubuntu is a "Snap" which doesn't work in the container and has it's own set of security issues anyway. To get around this, I added the [Xtradb](https://launchpad.net/~xtradeb/+archive/ubuntu/apps) repo in the container and pull in the Chromium package from there. Chromium is super dependendent on system features which don't work the same way in Docker without turning the container into little more than a root shell so unless there's a way to configure Kiro to use firefox instead, this "works". I would not recommend using Chromium in the container for anything else besides logging into Kiro. If it pops up for some reason, like installing a Kiro exension, be super careful. 
+
+Kiro must be started with `kiro --no-sandbox` for the same reasons above. Simply running `kiro` will just get you a blank stare from your terminal.
+
+Symlinks are connected in the container from `/mnt/home/$USER` to `$HOME` which Kiro needs to maintain persistence. This way plugins and things for Kiro won't have to be installed every time you start the container. Some other directories (`.config/pulse`) are volume-mounted R/W on the R/O volume mount for `/mnt/home/$USER`. This allows for some pieces of $HOME on the host to be written to, but the majority of $HOME on the host remains read-only, or mostly ephemeral. Those symlinks are created from `/etc/bash.bashrc` so see the Dockerfile if you want to edit the source file to disable them.
+
+Lastly, there are many ways to butcher docker security. Custom [Seccomp profiles](https://docs.docker.com/engine/security/seccomp/) seem like the most [favorable and granular](https://stackoverflow.com/questions/76833201/how-to-run-chrome-securely-in-docker) method.
 
 ---
 
@@ -34,17 +51,15 @@ The second work-around is Kiro must also be started with `--no-sandbox` since it
 * GPU passthrough support via Docker `--gpus all`.
 * Volume mounts for `/apps`, home directories, and Kiro configuration.
 
-**Home directory mounts and symlinks (persistence behavior):**
+**Home directory mounts and symlinks (persistence):**
 * The build process creates a user inside the container with the same UID/GID as the builder.
 * The container expects the build user's home to be mounted under `/mnt/$USER_HOME` (host → container). The README/Makefile symlinks point the container user to those mount targets.
-* Symlinks created in the container (examples):
+* Symlinks created in the container. See `etc/bash.bashrc` for implementation (example):
   * `~/.ssh` → `/mnt/$USER_HOME/.ssh` (intended to be mounted **read‑only** `:ro` for safety)
-  * `~/.gitconfig` → `/mnt/$USER_HOME/.gitconfig` (commonly mounted **read‑only** `:ro`)
-  * `~/.kiro` → `/mnt/$USER_HOME/.kiro` (mounted **read‑write** `:rw` to persist Kiro settings)
-* The `/apps` directory inside the container is mounted from the host (host `./apps` → container `/apps`) and is expected to be **read‑write** `:rw` so you can edit/build projects there.
+* The `/apps` directory inside the container is mounted from the host (host `$HOME/apps` → container `/apps`) and is expected to be **read‑write** `:rw` so you can edit/build projects there.
 * Persistence and access semantics depend entirely on how you mount the host directories when running the container — some mounts in the examples are intended to be `:ro` and others `:rw`. Verify and adjust your run target flags to match your security and workflow needs.
 
-**Important:** The host-side `apps` directory **must exist** before running `make runm`, `make runx`, `make runx2` or `make xrunx` — Docker will create an empty directory when binding a host path that does not exist, but failing to intentionally create/prepare it may lead to surprises.
+**Important:** The host-side `$HOST_PATH` ($HOME/apps) directory declared in the Makefile **must exist** before running `make runm`, `make runx`, `make runx2` or `make xrunx` — Docker will create an empty directory when binding a host path that does not exist, but failing to intentionally create/prepare it may lead to surprises.
 
 ---
 
