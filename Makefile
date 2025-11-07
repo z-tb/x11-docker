@@ -98,6 +98,7 @@ runx:
 #  * Use the same user as host to avoid permission issues on $HOME
 #  * forward group for Docker socket if needed
 #  * mount ~/.kiro RW for Kiro settings persistence
+#  * mount ~/.config/Kiro RW for Kiro settings persistence
 runx2:
 	docker run -it --rm --shm-size=1g \
 		--name $(CONTAINER_NAME) \
