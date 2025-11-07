@@ -70,7 +70,7 @@ RUN cd /tmp && git clone https://github.com/powerline/fonts.git --depth=1 && cd 
 
 ### Create non-root user/user running build ###
 RUN groupadd -g ${USER_GROUP_GID} ${USER_GROUP_NAME} \
-    && useradd -u ${USER_UID} -g ${USER_GROUP_GID} -G sudo -m -s ${USER_SHELL} ${USER_NAME} -d ${USER_HOME} \
+    && useradd -u ${USER_UID} -g ${USER_GROUP_GID} -G sudo -d ${USER_HOME} -s ${USER_SHELL} -m ${USER_NAME} \
     && echo "${USER_NAME} ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/sudo-users
 
 # install chromium from something that isn't 🤡Snap🤡 based
