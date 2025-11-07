@@ -11,7 +11,7 @@ This project provides a Dockerized development environment capable of running X1
 
 This started as a project using [Xephyr](https://www.x.org/archive/X11R7.5/doc/man/man1/Xephyr.1.html#toc7) for a dedicated X display which is faster than VNC, but difficult to use cut-and-paste with. Using `ssh -X` to display remote X apps is fine too, but there can be some limitations and latency with the compression and ciphers. The X11 pass-through was the next idea so I've split this into two branches. It's really designed for those who need a consistent X11 environment (or one managed by a security team) for testing, development, or experimentation.  I am not sure this will work with Windows or Mac. It's more likely with Xephyr, less likely with X11 sockets.
 
-This isn't limited to Kiro. It would likely work for other X applications as well. Sound support is available from the container also but I added it as a curiosity rather than out of need.
+This isn't limited to Kiro. It would likely work for other IDE applications (VSCode, Cursor, Claude) as well. Sound support is available from the container also but I added it as a curiosity rather than out of need.
 
 ---
 
@@ -37,7 +37,7 @@ Kiro must be started with `kiro --no-sandbox` for the same reasons above. Simply
 
 Symlinks are connected in the container from `/mnt/home/$USER` to `$HOME` which Kiro needs to maintain persistence. This way plugins and things for Kiro won't have to be installed every time you start the container. Some other directories (`.config/pulse`) are volume-mounted R/W on the R/O volume mount for `/mnt/home/$USER`. This allows for some pieces of $HOME on the host to be written to, but the majority of $HOME on the host remains read-only, or mostly ephemeral. Those symlinks are created from `/etc/bash.bashrc` so see the Dockerfile if you want to edit the source file to disable them.
 
-Lastly, there are many ways to butcher docker security. Custom [Seccomp profiles](https://docs.docker.com/engine/security/seccomp/) seem like the most [favorable and granular](https://stackoverflow.com/questions/76833201/how-to-run-chrome-securely-in-docker) method.
+Lastly, there are many ways to butcher docker security in the interest of increasing usability. Custom [Seccomp profiles](https://docs.docker.com/engine/security/seccomp/) seem like the most [favorable and granular](https://stackoverflow.com/questions/76833201/how-to-run-chrome-securely-in-docker) method so there are indeed other ways to cross this bridge.
 
 ---
 
