@@ -19,6 +19,10 @@ COPY etc/bashrc-addition /tmp/
 
 # set to 1 in Makefile to install amazon kiro
 ARG WITH_KIRO
+ARG WITH_AWS_CLI
+ARG WITH_TOFU
+ARG WITH_CURSOR
+ARG WITH_VSCODE
 
 # Set the working directory
 WORKDIR /apps
@@ -44,6 +48,7 @@ RUN apt-get install -y \
     dbus \
     dbus-x11 \
     x11-utils \
+    rsync \
     software-properties-common \
     firefox
 
@@ -63,6 +68,31 @@ RUN if [ "${WITH_KIRO}" = "1" ]; then \
       rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
     else \
       echo "Skipping Kiro installation"; \
+    fi
+
+### AWS CLI + Session Manager ###
+RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
+      cd /tmp && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
+      curl -fsSL "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o plugin.deb && dpkg -i plugin.deb; \
+    fi
+
+# Conditional package installs
+### OpenTofu ###
+RUN if [ "${WITH_TOFU}" = "1" ]; then \
+      cd /tmp && curl -fsSL https://get.opentofu.org/install-opentofu.sh -o install.sh && \
+      chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
+    fi
+
+### VSCode ###
+RUN if [ "${WITH_VSCODE}" = "1" ]; then \
+      cd /tmp && curl -fsSL https://vscode.download.prss.microsoft.com/dbazure/download/stable/7d842fb85a0275a4a8e4d7e040d2625abbf7f084/code_1.105.1-1760482543_amd64.deb -o install.deb && \
+      apt install ./install.deb && rm ./install.deb; \
+    fi
+
+### Cursor IDE ###
+RUN if [ "${WITH_CURSOR}" = "1" ]; then \
+      cd /tmp && curl -fsSL https://downloads.cursor.com/production/63fcac100bd5d5749f2a98aa47d65f6eca61db39/linux/x64/deb/amd64/deb/cursor_2.0.69_amd64.deb -o install.deb && \
+      apt install ./install.deb && rm ./install.deb; \
     fi
 
 ### sane X11 fonts ###

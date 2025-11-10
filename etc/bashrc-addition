@@ -79,25 +79,30 @@ alias ks="kiro --no-sandbox"
 # color prompt - run pcol from ~/.bashrc to activate
 #------------------------------------------------------------------
 function pcol() {
-    PCHAR='$'; UC='\[\e[0;36;40m\]'
-    if [ `id -u` -eq 0 ]; then PCHAR='#'; UC='\[\e[1;33;41m\]'; else UC='\[\e[0;36;40m\]'; fi
+    # Determine prompt character
+    if [ "$(id -u)" -eq 0 ]; then
+        PCHAR='#'
+    else
+        PCHAR='$'
+    fi
 
-    # Define color codes
-    BOLD_CYAN='\[\e[1;36;40m\]'
-    BOLD_PURPLE='\[\e[1;35;44m\]'
-    RESET='\[\e[0;0;00m\]'
-    BOLD_GREEN='\[\e[0;32;40m\]'
+    # Define color codes (all with black background)
+       BOLD_CYAN='\[\e[1;36;40m\]'
+     BOLD_PURPLE='\[\e[1;35;40m\]'
+           RESET='\[\e[0m\]'
+      BOLD_GREEN='\[\e[1;32;40m\]'
     BOLD_MAGENTA='\[\e[1;35;40m\]'
-    BOLD_YELLOW='\[\e[1;33;40m\]'
-    LIGHT_GRAY='\[\e[0;37;40m\]'
+     BOLD_YELLOW='\[\e[1;33;40m\]'
+      LIGHT_GRAY='\[\e[0;37;40m\]'
 
-    # User-specific prompt components
-    TIME_DATE="[${BOLD_PURPLE}\$(date '+%I:%M')${RESET} \$(date '+%D')\$(display_git_branch)${BOLD_CYAN}]"
-    USER_HOST="[${BOLD_CYAN}${UC}\u${BOLD_GREEN}@${BOLD_MAGENTA}\h${BOLD_YELLOW} \w${BOLD_CYAN}]"
+    # Build prompt components
+    TIME_DATE="[${BOLD_PURPLE}\$(date '+%I:%M')${RESET} ✖️ 🐳 ${BOLD_MAGENTA}\$(date '+%D')\$(display_git_branch)${BOLD_CYAN}]${RESET}"
+    USER_HOST="[${BOLD_YELLOW}\u${BOLD_GREEN}@${BOLD_MAGENTA}\h${LIGHT_GRAY} \w${BOLD_CYAN}]${RESET}"
     PCHAR="${LIGHT_GRAY}${PCHAR}${RESET}"
 
-    # Combine components into multi-line PS1 without escapes
-    PS1="\n${TIME_DATE}\n${USER_HOST}\n${PCHAR} "
+    # Combine into multi-line PS1
+    #PS1="\n${TIME_DATE}\n${USER_HOST}\n${PCHAR} "
+    PS1="${TIME_DATE}\n${USER_HOST}\n${PCHAR}${RESET} "
     export PS1
 }
 

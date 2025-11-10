@@ -15,7 +15,7 @@ USER_UID         := $(shell id -u)
 USER_GROUP_GID   := $(shell id -g)
 USER_GROUP_NAME  := $(shell id -gn)
 USER_NAME        := $(shell id -un)
-USER_SHELL       := $(SHELL)
+USER_SHELL       := /bin/bash
 USER_HOME        := $(HOME)
 
 # Docker group for socket forwarding
@@ -23,6 +23,10 @@ DOCKER_GID       := $(shell getent group docker | cut -d: -f3)
 
 # Optional installation flags
 WITH_KIRO        ?= 1
+WITH_AWS_CLI     ?= 1
+WITH_TOFU        ?= 1
+WITH_CURSOR      ?= 1
+WITH_VSCODE      ?= 1
 
 # ----------------------------------------------------------------------
 # Build targets
@@ -39,6 +43,10 @@ build:
 		--build-arg CONT_APP_MNT=$(CONT_APP_MNT) \
 		--build-arg IMAGE_NAME=$(IMAGE_NAME) \
 		--build-arg WITH_KIRO=$(WITH_KIRO) \
+		--build-arg WITH_AWS_CLI=$(WITH_AWS_CLI) \
+		--build-arg WITH_TOFU=$(WITH_TOFU) \
+		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
+		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 rebuild:
@@ -70,6 +78,9 @@ stop:
 clean:
 	docker rm $(CONTAINER_NAME) || true
 	docker rmi $(IMAGE_NAME) || true
+
+connect:
+	docker exec -it ${CONTAINER_NAME} /bin/bash
 
 # ----------------------------------------------------------------------
 # Run with X11 and PulseAudio support (host display)
