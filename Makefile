@@ -88,15 +88,15 @@ connect:
 
 runx:
 	docker run -it --rm \
-		-e DISPLAY=$(DISPLAY) \
-		-e USER=$(USER_NAME) \
-		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-		-v $(HOST_PATH):/apps:rw \
-		-v /etc/alsa:/etc/alsa:ro \
-		-v /usr/share/alsa:/usr/share/alsa:ro \
-		-v $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
-		-v /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
-		-e PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
+		--env DISPLAY=$(DISPLAY) \
+		--env USER=$(USER_NAME) \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume $(HOST_PATH):/apps:rw \
+		--volume /etc/alsa:/etc/alsa:ro \
+		--volume /usr/share/alsa:/usr/share/alsa:ro \
+		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
+		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
 		--user $(USER_UID):$(USER_GROUP_GID) \
 		--group-add $(DOCKER_GID) \
 		$(IMAGE_NAME) /bin/bash
@@ -114,24 +114,60 @@ runx2:
 	docker run -it --rm --shm-size=1g \
 		--name $(CONTAINER_NAME) \
 		--hostname $(IMAGE_NAME) \
-		-e DISPLAY=$(DISPLAY) \
-		-e USER=$(USER_NAME) \
-		-v ${USER_HOME}:/mnt/${USER_HOME}:ro \
-		-v ${USER_HOME}/.kiro:/mnt/${USER_HOME}/.kiro:rw \
-		-v ${USER_HOME}/.config/Kiro:/mnt/${USER_HOME}/.config/Kiro:rw \
-		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-		-v /etc/alsa:/etc/alsa:ro \
-		-v /usr/share/alsa:/usr/share/alsa:ro \
-		-v $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
-		-v /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
-		-e PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
-		-v $(HOST_PATH):/apps:rw \
+		--env DISPLAY=$(DISPLAY) \
+		--env USER=$(USER_NAME) \
+		--volume ${USER_HOME}:/mnt/${USER_HOME}:ro \
+		--volume ${USER_HOME}/.kiro:/mnt/${USER_HOME}/.kiro:rw \
+		--volume ${USER_HOME}/.config/Kiro:/mnt/${USER_HOME}/.config/Kiro:rw \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume /etc/alsa:/etc/alsa:ro \
+		--volume /usr/share/alsa:/usr/share/alsa:ro \
+		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
+		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
+		--volume $(HOST_PATH):/apps:rw \
 		--gpus all \
-		-v /dev/dri:/dev/dri \
+		--volume /dev/dri:/dev/dri \
 		--user $(USER_UID):$(USER_GROUP_GID) \
 		--group-add $(DOCKER_GID) \
 		$(IMAGE_NAME) /bin/bash
 
+
+# testing runtime provisioning for use with pulling the container from Quay
+# add --device for /dev/usb/ubikey-whatever? 
+runx2env:
+	@SSH_FORWARD=""; \
+	if [ -n "$$SSH_AUTH_SOCK" ]; then \
+		SSH_FORWARD="--env SSH_AUTH_SOCK=$$SSH_AUTH_SOCK --volume $$SSH_AUTH_SOCK:$$SSH_AUTH_SOCK"; \
+	else \
+		echo "⚠️  SSH_AUTH_SOCK not set on host; you will need to mount ~/.ssh manually or start an ssh-agent."; \
+	fi; \
+	docker run -it --rm --shm-size=1g \
+		--user $(USER_UID):$(USER_GROUP_GID) \
+		--name $(CONTAINER_NAME) \
+		--hostname $(IMAGE_NAME) \
+		--env DISPLAY=$(DISPLAY) \
+		--env USER_UID=$(USER_UID) \
+		--env USER_GROUP_GID=$(USER_GROUP_GID) \
+		--env USER_GROUP_NAME=$(USER_GROUP_NAME) \
+		--env USER_NAME=$(USER_NAME) \
+		--env USER_SHELL=$(USER_SHELL) \
+		--env USER_HOME=$(USER_HOME) \
+		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
+		$$SSH_FORWARD \
+		--volume ${USER_HOME}:/mnt/${USER_HOME}:ro \
+		--volume ${USER_HOME}/.kiro:/mnt/${USER_HOME}/.kiro:rw \
+		--volume ${USER_HOME}/.config/Kiro:/mnt/${USER_HOME}/.config/Kiro:rw \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume /etc/alsa:/etc/alsa:ro \
+		--volume /usr/share/alsa:/usr/share/alsa:ro \
+		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
+		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+		--volume $(HOST_PATH):/apps:rw \
+		--gpus all \
+		--volume /dev/dri:/dev/dri \
+		--group-add $(DOCKER_GID) \
+		$(IMAGE_NAME) /usr/local/bin/runtime-prov.sh
 
 
 
@@ -142,17 +178,21 @@ runx2:
 xrunx:
 	Xephyr :1 -ac -screen 1280x720 & \
 	docker run -it --rm \
-		-e DISPLAY=:1 \
-		-e USER=$(USER_NAME) \
-		-v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-		-v $(HOST_PATH):/app:rw \
-		-v /etc/alsa:/etc/alsa:ro \
-		-v /usr/share/alsa:/usr/share/alsa:ro \
-		-v $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
-		-v /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
-		-e PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
+		--env DISPLAY=:1 \
+		--env USER=$(USER_NAME) \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume $(HOST_PATH):/app:rw \
+		--volume /etc/alsa:/etc/alsa:ro \
+		--volume /usr/share/alsa:/usr/share/alsa:ro \
+		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
+		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
 		--user $(USER_UID):$(USER_GROUP_GID) \
 		--group-add $(DOCKER_GID) \
 		$(IMAGE_NAME) /bin/bash
 
 # vim: set ts=3 sw=3 tw=0 noet :
+
+
+
+
