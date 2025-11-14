@@ -28,12 +28,14 @@ WITH_TOFU        ?= 1
 WITH_CURSOR      ?= 1
 WITH_VSCODE      ?= 1
 
+
 # ----------------------------------------------------------------------
 # Build targets
 # ----------------------------------------------------------------------
 
+
 build:
-	docker build \
+	docker build --progress=plain \
 		--build-arg USER_UID=$(USER_UID) \
 		--build-arg USER_GROUP_GID=$(USER_GROUP_GID) \
 		--build-arg USER_GROUP_NAME=$(USER_GROUP_NAME) \
@@ -134,7 +136,7 @@ runx2:
 
 
 # testing runtime provisioning for use with pulling the container from Quay
-# add --device for /dev/usb/ubikey-whatever? 
+# add --device for /dev/usb/ubikey-whatever?
 runx2env:
 	@SSH_FORWARD=""; \
 	if [ -n "$$SSH_AUTH_SOCK" ]; then \
@@ -143,7 +145,6 @@ runx2env:
 		echo "⚠️  SSH_AUTH_SOCK not set on host; you will need to mount ~/.ssh manually or start an ssh-agent."; \
 	fi; \
 	docker run -it --rm --shm-size=1g \
-		--user $(USER_UID):$(USER_GROUP_GID) \
 		--name $(CONTAINER_NAME) \
 		--hostname $(IMAGE_NAME) \
 		--env DISPLAY=$(DISPLAY) \
@@ -167,14 +168,60 @@ runx2env:
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
 		--group-add $(DOCKER_GID) \
-		$(IMAGE_NAME) /usr/local/bin/runtime-prov.sh
+		$(IMAGE_NAME)
+
+# write a comment for this make target
+# similar to runx2env but uses --user to run as host user directly
+# this requires that the container user is pre-provisioned to match host user
+#  * X11 forwarding
+#  * PulseAudio/alsa forwarding - could maybe be symlinks to /mnt/$USER_HOME in container?
+#  * App mounting - or data directory for work in continer
+#  * GPU passthrough
+#  * mount user home from host as /mnt/$USER_HOME read-only
+#  * subdirectories from host:$HOME
+#  * forward group for Docker socket if needed
+#  * mount ~/.kiro RW for Kiro settings persistence
+#  * mount ~/.config/Kiro RW for Kiro settings persistence
+#  * entrypoint provisions user/group at runtime so user names match in container and host
+runx2user:
+	@SSH_FORWARD=""; \
+	if [ -n "$$SSH_AUTH_SOCK" ]; then \
+		SSH_FORWARD="--env SSH_AUTH_SOCK=$$SSH_AUTH_SOCK --volume $$SSH_AUTH_SOCK:$$SSH_AUTH_SOCK"; \
+	else \
+		echo "⚠️  SSH_AUTH_SOCK not set on host; you will need to mount ~/.ssh manually or start an ssh-agent."; \
+	fi; \
+	docker run -it --rm --shm-size=1g \
+		--user $(id -u):$(id -g) \
+		--name $(CONTAINER_NAME) \
+		--hostname $(IMAGE_NAME) \
+		--env DISPLAY=$(DISPLAY) \
+		--env USER_UID=$(USER_UID) \
+		--env USER_GROUP_GID=$(USER_GROUP_GID) \
+		--env USER_GROUP_NAME=$(USER_GROUP_NAME) \
+		--env USER_NAME=$(USER_NAME) \
+		--env USER_SHELL=$(USER_SHELL) \
+		--env USER_HOME=$(USER_HOME) \
+		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
+		$$SSH_FORWARD \
+		--volume ${USER_HOME}:/mnt/${USER_HOME}:ro \
+		--volume ${USER_HOME}/.kiro:/mnt/${USER_HOME}/.kiro:rw \
+		--volume ${USER_HOME}/.config/Kiro:/mnt/${USER_HOME}/.config/Kiro:rw \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume /etc/alsa:/etc/alsa:ro \
+		--volume /usr/share/alsa:/usr/share/alsa:ro \
+		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
+		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+		--volume $(HOST_PATH):/apps:rw \
+		--gpus all \
+		--volume /dev/dri:/dev/dri \
+		--group-add $(DOCKER_GID) \
+		$(IMAGE_NAME)
 
 
 
 # ----------------------------------------------------------------------
 # Run inside Xephyr virtual X11 server
 # ----------------------------------------------------------------------
-
 xrunx:
 	Xephyr :1 -ac -screen 1280x720 & \
 	docker run -it --rm \
