@@ -1,11 +1,17 @@
 # ----------------------------------------------------------------------
 # Base Image
+#
+# This creates a Docker image based on Ubuntu 24.04 with NVIDIA CUDA
+# runtime support and optional installations of Kiro, AWS CLI, OpenTofu,
+# VSCode, and Cursor. It also includes X11 support for GUI applications.
+# This is achieved by mounting the X11 socket from the host into the container
+# at runtime, along with runtime user provisioning via an entrypoint script.
+#
 # ----------------------------------------------------------------------
-# Use the nvidia CUDA runtime base image for GPU passthrough support
 FROM nvidia/cuda:13.0.1-runtime-ubuntu24.04
 
 # Don't prompt for input during build
-ARG DEBIAN_FRONTEND=noninteractive 
+ARG DEBIAN_FRONTEND=noninteractive
 
 # ----------------------------------------------------------------------
 # Software installation flags
@@ -65,51 +71,45 @@ RUN apt-get update && apt-get install -y \
     libsecret-1-0 \
     libxss1 \
     libnss3 \
-    libatk1.0-0
+    libatk1.0-0 \
+    unzip
 
 # ----------------------------------------------------------------------
 # Optional software installs
 # ----------------------------------------------------------------------
-### Kiro ###
 RUN if [ "${WITH_KIRO}" = "1" ]; then \
       curl -fsSL -o /tmp/kiro.deb ${URL_KIRO} && \
       dpkg -i /tmp/kiro.deb || apt-get install -f -y && \
       rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
-    else \
-      echo "Skipping Kiro installation"; \
-    fi
+    else echo "Skipping Kiro installation"; fi
 
-### AWS CLI + Session Manager ###
 RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_AWS_CLI} -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
       curl -fsSL ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
     fi
 
-### OpenTofu ###
 RUN if [ "${WITH_TOFU}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_TOFU} -o install.sh && \
       chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
     fi
 
-### VSCode ###
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_VSCODE} -o install.deb && \
       apt install ./install.deb && rm ./install.deb; \
     fi
 
-### Cursor IDE ###
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_CURSOR} -o install.deb && \
       apt install ./install.deb && rm ./install.deb; \
     fi
 
 # ----------------------------------------------------------------------
-# Install sane X11 fonts
+# Fonts
 # ----------------------------------------------------------------------
 RUN cd /tmp && git clone https://github.com/powerline/fonts.git --depth=1 && cd fonts && ./install.sh
 
 # ----------------------------------------------------------------------
-# Chromium installation (non-Snap)
+# Chromium
 # ----------------------------------------------------------------------
 RUN apt-get update && \
     apt-get install -y software-properties-common wget gnupg2 && \
@@ -117,15 +117,10 @@ RUN apt-get update && \
     apt-get update && \
     apt-get install -y chromium
 
-# ----------------------------------------------------------------------
-# Fix Chromium flags for Docker
-# ----------------------------------------------------------------------
 RUN if [ -f /bin/chromium ]; then \
       cp /bin/chromium /usr/bin/chromium.bak && \
       sed -i -E 's|^(CHROMIUM_FLAGS=.*)|CHROMIUM_FLAGS="--no-sandbox --disable-software-rasterizer --disable-dev-shm-usage"|g' /bin/chromium; \
-    else \
-      echo "Chromium not installed, skipping flag fix"; \
-    fi
+    else echo "Chromium not installed, skipping flag fix"; fi
 
 # ----------------------------------------------------------------------
 # Append custom bash additions
@@ -133,17 +128,13 @@ RUN if [ -f /bin/chromium ]; then \
 RUN cat /tmp/bashrc-addition >> /etc/bash.bashrc && rm /tmp/bashrc-addition
 
 # ----------------------------------------------------------------------
-# Provisioning script
+# Copy entrypoint script for provisioning and runtime user setup
 # ----------------------------------------------------------------------
-COPY ./usr/local/bin/runtime-prov.sh /usr/local/bin/runtime-prov.sh
-RUN chmod +x /usr/local/bin/runtime-prov.sh
+COPY ./usr/local/bin/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # ----------------------------------------------------------------------
-# Prepare root home for default shell
+# Default ENTRYPOINT and CMD
 # ----------------------------------------------------------------------
-RUN mkdir -p /root/.config && mkdir -p /root/.local
-
-# ----------------------------------------------------------------------
-# Default CMD
-# ----------------------------------------------------------------------
-CMD ["/usr/local/bin/runtime-prov.sh"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["bash"]
