@@ -2,8 +2,16 @@ IMAGE_NAME 	 	= x11-image
 CONTAINER_NAME 	= x11-test
 HOST_PATH 	    = ./app
 
+# if CURSOR_USER_UID is not exported, use the current user's UID
+CURSOR_GID = $(groups code)
+CURSOR_USER_UID=38003
+
+GROUPS := code docker developer
+GROUP_FLAGS := $(foreach group,$(GROUPS),--group-add $(group))
+# uid=38003(code) gid=38003(code) groups=38003(code),143(docker),38004(developer)
+
 build:
-	docker build -t $(IMAGE_NAME) .
+	docker build --build-arg CURSOR_USER_UID=$(CURSOR_USER_UID) -t $(IMAGE_NAME) .
 
 rebuild:
 	docker build --no-cache -t $(IMAGE_NAME) .
@@ -38,6 +46,24 @@ runx:
 	-v "/run/user/$(UID)/pulse/native:/run/user/$(UID)/pulse/native" \
 	--env "PULSE_SERVER=unix:/run/user/$(UID)/pulse/native" \
 	--user "$(id -u)" \
+	$(IMAGE_NAME) /bin/bash
+
+# extra mounts for running Cursor
+runcursorx:
+	Xephyr :1 -ac -screen 1920x1080 & \
+	docker run -it --rm \
+	-e DISPLAY=:1 \
+	-v /tmp/.X11-unix:/tmp/.X11-unix \
+	-v "./app:/app/" \
+	-v "/home/src:/home/src/" \
+	-v "/usr/local/cursor:/usr/local/cursor/" \
+	-v "/etc/alsa:/etc/alsa" \
+	-v "/usr/share/alsa:/usr/share/alsa" \
+	-v "$(HOME)/.config/pulse:/.config/pulse" \
+	-v "/run/user/$(CURSOR_USER_UID)/pulse/native:/run/user/$(CUSOR_USER_UID)/pulse/native" \
+	--env "PULSE_SERVER=unix:/run/user/$(CURSOR_USER_UID)/pulse/native" \
+	--user "$(CURSOR_USER_UID):$(CURSOR_USER_UID)" \
+	$(GROUP_FLAGS) \
 	$(IMAGE_NAME) /bin/bash
 
 runm:

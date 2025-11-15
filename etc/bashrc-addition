@@ -60,6 +60,11 @@ alias gpush='git push origin `get_git_branch`; git push origin --tags'
 alias gpusha='git push --all origin'
 alias glog='git log --pretty --oneline'
 
+# cursor needs to run without sandbox in container
+# also unpack the appimage with --appimage-extract to negate FUSE in the container
+alias cursor='/usr/local/cursor/AppRun ----no-sandbox'
+
+
 
 # color prompt - run pcol
 function pcol() {
