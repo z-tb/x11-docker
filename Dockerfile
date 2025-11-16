@@ -83,21 +83,25 @@ RUN if [ "${WITH_KIRO}" = "1" ]; then \
       rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
     else echo "Skipping Kiro installation"; fi
 
+# Install AWS CLI
 RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_AWS_CLI} -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
       curl -fsSL ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
     fi
 
+# Install OpenTofu
 RUN if [ "${WITH_TOFU}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_TOFU} -o install.sh && \
       chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
     fi
 
+# Install VSCode
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_VSCODE} -o install.deb && \
       apt install ./install.deb && rm ./install.deb; \
     fi
 
+# Install Cursor
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_CURSOR} -o install.deb && \
       apt install ./install.deb && rm ./install.deb; \
@@ -134,7 +138,6 @@ COPY ./usr/local/bin/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # ----------------------------------------------------------------------
-# Default ENTRYPOINT and CMD
+# Default ENTRYPOINT (runs bash shell)
 # ----------------------------------------------------------------------
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["bash"]
