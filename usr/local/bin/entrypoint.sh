@@ -112,10 +112,10 @@ if ! getent group "$USER_GROUP_NAME" >/dev/null; then
     if sudo groupadd -g "$USER_GROUP_GID" "$USER_GROUP_NAME"; then
         success "[GROUP] Created group \e[1;34m$USER_GROUP_NAME\e[0m (GID $USER_GROUP_GID)"
     else
-        warn "[GROUP] Failed to create group \e[1;31m$USER_GROUP_NAME\e[0m"
+        warn "[GROUP] Failed to create group \e[1;33m$USER_GROUP_NAME\e[0m"
     fi
 else
-    warn "[GROUP] Group \e[1;31m$USER_GROUP_NAME\e[0m already exists"
+    warn "[GROUP] Group \e[1;33m$USER_GROUP_NAME\e[0m already exists"
 fi
 
 # -----------------------------
@@ -134,7 +134,7 @@ if ! id -u "$USER_NAME" >/dev/null 2>&1; then
         warn "[USER] Failed to create user \e[1;31m$USER_NAME\e[0m"
     fi
 else
-    warn "[USER] User \e[1;31m$USER_NAME\e[0m already exists"
+    warn "[USER] User \e[1;33m$USER_NAME\e[0m already exists"
 fi
 
 
