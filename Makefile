@@ -30,6 +30,7 @@ WITH_AWS_CLI     ?= 1
 WITH_TOFU        ?= 1
 WITH_CURSOR      ?= 1
 WITH_VSCODE      ?= 1
+WITH_CLAUDE      ?= 1
 
 
 # ----------------------------------------------------------------------
@@ -53,6 +54,7 @@ build: info
 		--build-arg WITH_TOFU=$(WITH_TOFU) \
 		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
 		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
+		--build-arg WITH_CLAUDE=$(WITH_CLAUDE) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 # Rebuild the image without cache
@@ -68,6 +70,11 @@ rebuild: info
 		--build-arg CONT_APP_MNT=$(CONT_APP_MNT) \
 		--build-arg IMAGE_NAME=$(IMAGE_NAME) \
 		--build-arg WITH_KIRO=$(WITH_KIRO) \
+		--build-arg WITH_AWS_CLI=$(WITH_AWS_CLI) \
+		--build-arg WITH_TOFU=$(WITH_TOFU) \
+		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
+		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
+		--build-arg WITH_CLAUDE=$(WITH_CLAUDE) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 # ----------------------------------------------------------------------
@@ -110,6 +117,7 @@ info:
 	@echo "WITH_TOFU=$(WITH_TOFU)"
 	@echo "WITH_CURSOR=$(WITH_CURSOR)"
 	@echo "WITH_VSCODE=$(WITH_VSCODE)"
+	@echo "WITH_CLAUDE=$(WITH_CLAUDE)"
 	@echo
 
 # ----------------------------------------------------------------------
@@ -197,19 +205,13 @@ etctest: info
 		--env USER_NAME=$(USER_NAME) \
 		--env USER_SHELL=$(USER_SHELL) \
 		--env USER_HOME=$(USER_HOME) \
-		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
+		--env USER_GROUPS=$(USER_GROUPS) \
 		$$SSH_FORWARD \
-		--volume ${USER_HOME}:/mnt/${USER_HOME}:ro \
-		--volume ${USER_HOME}/.kiro:/mnt/${USER_HOME}/.kiro:rw \
-		--volume ${USER_HOME}/.config/Kiro:/mnt/${USER_HOME}/.config/Kiro:rw \
+		--volume ${USER_HOME}/.kiro:${USER_HOME}/.kiro:rw \
+		--volume ${USER_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw \
+		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
 		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
-		--volume /etc/alsa:/etc/alsa:ro \
-		--volume /usr/share/alsa:/usr/share/alsa:ro \
-		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
-		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
 		--volume $(HOST_PATH):/apps:rw \
-		--volume ./etc/passwd.$(USER_NAME):/etc/passwd:ro \
-		--volume ./etc/group.$(USER_NAME):/etc/group:ro \
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
 		--group-add $(DOCKER_GID) \

@@ -84,7 +84,7 @@ fi
 
 # if not started with root, then don't bother trying to create any accounts
 if [ "$(id -u)" != "0" ]; then
-    info "Not started as root, or UID 1000. exiting."
+    info "Not started as root:q, or UID 1000. exiting."
     exit
 fi
 
@@ -181,10 +181,10 @@ else
 fi
 
 # Other configs
-create_symlink "/mnt/home/${USER_NAME}/.gitconfig"    "$USER_HOME/.gitconfig" "Git config"
-create_symlink "/mnt/home/${USER_NAME}/.kiro"         "$USER_HOME/.kiro" "Kiro settings"
-create_symlink "/mnt/home/${USER_NAME}/.config/Kiro"  "$USER_HOME/.config/Kiro" "Kiro config"
-create_symlink "/mnt/home/${USER_NAME}/.config/pulse" "$USER_HOME/.config/pulse" "PulseAudio config"
+# create_symlink "/mnt/home/${USER_NAME}/.gitconfig"    "$USER_HOME/.gitconfig" "Git config"
+#create_symlink "/mnt/home/${USER_NAME}/.kiro"         "$USER_HOME/.kiro" "Kiro settings"
+#create_symlink "/mnt/home/${USER_NAME}/.config/Kiro"  "$USER_HOME/.config/Kiro" "Kiro config"
+#create_symlink "/mnt/home/${USER_NAME}/.config/pulse" "$USER_HOME/.config/pulse" "PulseAudio config"
 
 # -----------------------------
 # Symlink summary

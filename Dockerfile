@@ -21,6 +21,7 @@ ARG WITH_AWS_CLI
 ARG WITH_TOFU
 ARG WITH_CURSOR
 ARG WITH_VSCODE
+ARG WITH_CLAUDE
 
 # ----------------------------------------------------------------------
 # URLs for external downloads
@@ -31,6 +32,7 @@ ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plug
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
 ARG URL_VSCODE="https://vscode.download.prss.microsoft.com/dbazure/download/stable/7d842fb85a0275a4a8e4d7e040d2625abbf7f084/code_1.105.1-1760482543_amd64.deb"
 ARG URL_CURSOR="https://downloads.cursor.com/production/63fcac100bd5d5749f2a98aa47d65f6eca61db39/linux/x64/deb/amd64/deb/cursor_2.0.69_amd64.deb"
+ARG URL_CLAUDE="https://claude.ai/install.sh"
 
 # ----------------------------------------------------------------------
 # Working directory
@@ -54,15 +56,11 @@ RUN apt-get update && apt-get install -y \
     net-tools \
     vim \
     nano \
-    x11-apps \
+    rsync \
     strace \
-    libpulse0 \
-    cinnamon \
     lxde \
     dbus \
     dbus-x11 \
-    x11-utils \
-    rsync \
     software-properties-common \
     firefox \
     libasound2t64 \
@@ -72,6 +70,8 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libnss3 \
     libatk1.0-0 \
+    x11-apps \
+    x11-utils \
     unzip
 
 # ----------------------------------------------------------------------
@@ -87,30 +87,50 @@ RUN if [ "${WITH_KIRO}" = "1" ]; then \
 RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_AWS_CLI} -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
       curl -fsSL ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
-    fi
+    else echo "Skipping AWS Cli installation"; fi
 
 # Install OpenTofu
 RUN if [ "${WITH_TOFU}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_TOFU} -o install.sh && \
       chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
-    fi
+    else echo "Skipping OpenTofu installation"; fi
 
 # Install VSCode
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_VSCODE} -o install.deb && \
       apt install ./install.deb && rm ./install.deb; \
-    fi
+    else echo "Skipping VS Code installation"; fi
 
 # Install Cursor
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_CURSOR} -o install.deb && \
       apt install ./install.deb && rm ./install.deb; \
-    fi
+    else echo "Skipping Cursor installation"; fi
+
+# Install Claude system-wide under /usr/local/bin
+RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
+      cd /tmp && curl -fsSL ${URL_CLAUDE} -o install.sh && \
+      chmod +x install.sh && ./install.sh && \
+      # Find the actual binary and copy to system location \
+      CLAUDE_BINARY=$(readlink -f ~/.local/bin/claude) && \
+      cp "$CLAUDE_BINARY" /usr/local/bin/claude && \
+      chmod +x /usr/local/bin/claude && \
+      # Clean up \
+      rm install.sh && rm -rf ~/.local/bin/claude; \
+    else echo "Skipping Claude installation"; fi
 
 # ----------------------------------------------------------------------
 # Fonts
 # ----------------------------------------------------------------------
-RUN cd /tmp && git clone https://github.com/powerline/fonts.git --depth=1 && cd fonts && ./install.sh
+# Install Powerline fonts system-wide
+RUN cd /tmp && \
+    git clone https://github.com/powerline/fonts.git --depth=1 && \
+    cd fonts && \
+    mkdir -p /usr/share/fonts/truetype/powerline && \
+    find . -name "*.ttf" -exec cp {} /usr/share/fonts/truetype/powerline/ \; && \
+    find . -name "*.otf" -exec cp {} /usr/share/fonts/truetype/powerline/ \; && \
+    fc-cache -f -v && \
+    cd /tmp && rm -rf fonts
 
 # ----------------------------------------------------------------------
 # Chromium
