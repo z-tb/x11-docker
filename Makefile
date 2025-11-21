@@ -277,4 +277,20 @@ xrunx:
 		--user $(USER_UID):$(USER_GROUP_GID) \
 		$(IMAGE_NAME) /bin/bash
 
+
+# Set your Docker Hub username, or override on CLI: make push DOCKER_USER=foo
+DOCKER_USER ?= $(USER_NAME)
+
+push: ## Login, tag, and push image to Docker Hub
+	@echo "==> Logging in to Docker Hub as $(DOCKER_USER)"
+	docker login -u $(DOCKER_USER)
+
+	@echo "==> Tagging image: $(IMAGE_NAME) -> $(DOCKER_USER)/$(IMAGE_NAME):latest"
+	docker tag $(IMAGE_NAME):latest $(DOCKER_USER)/$(IMAGE_NAME):latest
+
+	@echo "==> Pushing image to Docker Hub"
+	docker push $(DOCKER_USER)/$(IMAGE_NAME):latest
+
+	@echo "==> Push complete!"
+
 # vim: set ts=3 sw=3 tw=0 noet :
