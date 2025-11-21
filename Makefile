@@ -10,7 +10,7 @@ IMAGE_NAME       := x11-image
 CONTAINER_NAME   := x11-test
 
 # Host and container paths
-HOST_PATH        := $(HOME)/apps
+HOST_PATH        := /home/src/
 CONT_APP_MNT     := /apps
 
 # User info
@@ -21,7 +21,7 @@ USER_NAME        := $(shell id -un)
 USER_SHELL       := /bin/bash
 USER_HOME        := $(HOME)
 
-# Docker group for socket forwarding
+# Docker group for socket forwarding - if using Docker inside container
 DOCKER_GID       := $(shell getent group docker | cut -d: -f3)
 
 # Optional installation flags
@@ -32,11 +32,18 @@ WITH_CURSOR      ?= 1
 WITH_VSCODE      ?= 1
 WITH_CLAUDE      ?= 1
 
+# ----------------------------------------------------------------------
+# supplemental groups for runtime user add to the container user
+# use current user groups, or define your own here
+# ----------------------------------------------------------------------
+SUPP_GROUPS := $(shell id -Gn | tr ' ' '\n' | while read g; do \
+    gid=$$(getent group "$$g" | cut -d: -f3); \
+    [ -n "$$gid" ] && printf "%s:%s," "$$g" "$$gid"; \
+done | sed 's/,$$//')
 
 # ----------------------------------------------------------------------
 # Build targets
 # ----------------------------------------------------------------------
-
 # Build the Docker image using cached layers (normal build)
 # Passes host user information and optional install flags into the image.
 build: info
@@ -80,7 +87,6 @@ rebuild: info
 # ----------------------------------------------------------------------
 # Basic container run targets
 # ----------------------------------------------------------------------
-
 # Run the container normally (interactive, uses container's default CMD)
 run: info
 	docker run -it --name $(CONTAINER_NAME) $(IMAGE_NAME)
@@ -111,7 +117,7 @@ info:
 	@echo "USER_NAME=$(USER_NAME)"
 	@echo "USER_SHELL=$(USER_SHELL)"
 	@echo "USER_HOME=$(USER_HOME)"
-	@echo "DOCKER_GID=$(DOCKER_GID)"
+	@echo "SUPP_GROUPS=$(SUPP_GROUPS)"
 	@echo "WITH_KIRO=$(WITH_KIRO)"
 	@echo "WITH_AWS_CLI=$(WITH_AWS_CLI)"
 	@echo "WITH_TOFU=$(WITH_TOFU)"
@@ -188,6 +194,8 @@ runx2: info
 		--group-add $(DOCKER_GID) \
 		$(IMAGE_NAME)
 
+# mount ./etc/passwd and ./etc/group to provide user and group entries
+# not sure this is any better than a supplemental group list. Less janky, maybe?
 etctest: info
 	@SSH_FORWARD=""; \
 	if [ -n "$$SSH_AUTH_SOCK" ]; then \
@@ -207,6 +215,8 @@ etctest: info
 		--env USER_HOME=$(USER_HOME) \
 		--env USER_GROUPS=$(USER_GROUPS) \
 		$$SSH_FORWARD \
+		--volume ./etc/group:/etc/group \
+		--volume ./etc/passwd:/etc/passwd \
 		--volume ${USER_HOME}/.kiro:${USER_HOME}/.kiro:rw \
 		--volume ${USER_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw \
 		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
@@ -214,13 +224,42 @@ etctest: info
 		--volume $(HOST_PATH):/apps:rw \
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
-		--group-add $(DOCKER_GID) \
 		$(IMAGE_NAME)
+
+
+# run container like runx2 but with supplemental groups passed in using SUPP_GROUPS variable
+supgroups: info
+	@SSH_FORWARD=""; \
+	if [ -n "$$SSH_AUTH_SOCK" ]; then \
+		SSH_FORWARD="--env SSH_AUTH_SOCK=$$SSH_AUTH_SOCK --volume $$SSH_AUTH_SOCK:$$SSH_AUTH_SOCK"; \
+	else \
+		echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent."; \
+	fi; \
+	docker run -it --rm --shm-size=1g \
+		--name $(CONTAINER_NAME) \
+		--hostname $(IMAGE_NAME) \
+		--env DISPLAY=$(DISPLAY) \
+		--env USER_UID=$(USER_UID) \
+		--env USER_GROUP_GID=$(USER_GROUP_GID) \
+		--env USER_GROUP_NAME=$(USER_GROUP_NAME) \
+		--env USER_NAME=$(USER_NAME) \
+		--env USER_SHELL=$(USER_SHELL) \
+		--env USER_HOME=$(USER_HOME) \
+		--env USER_GROUPS='$(SUPP_GROUPS)' \
+		$$SSH_FORWARD \
+		--volume ${USER_HOME}/.kiro:${USER_HOME}/.kiro:rw \
+		--volume ${USER_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw \
+		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume $(HOST_PATH):/apps:rw \
+		--gpus all \
+		--volume /dev/dri:/dev/dri \
+		$(IMAGE_NAME)
+
 
 # ----------------------------------------------------------------------
 # Run inside Xephyr virtual X11 server
 # ----------------------------------------------------------------------
-
 # Launch a nested X11 server via Xephyr (:1) and run the container inside it.
 # Useful for isolating the container's GUI from the main desktop session.
 xrunx:

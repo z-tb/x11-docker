@@ -35,5 +35,6 @@ plugdev:x:46:ubuntu
 staff:x:50:
 games:x:60:
 users:x:100:
+ssl-cert:x:117:
 nogroup:x:65534:
 ubuntu:x:1000:

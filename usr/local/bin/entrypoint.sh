@@ -23,10 +23,17 @@ sanitize_name() {
 }
 
 # Limit file-path characters (limited, sorry no dots. Add them if you want)
-
 sanitize_path() {
     printf '%s' "$1" | tr -cd 'a-zA-Z0-9_/\-'
 }
+
+# supplemental group arg - only allow a few sane characters
+sanitize_supp_groups() {
+    # allowed characters: groupnames [a-zA-Z0-9_-], GIDs [0-9], comma and colon
+    printf '%s' "$1" | tr -cd 'a-zA-Z0-9_,:-'
+}
+
+info "Group list is: $USER_GROUPS"
 
 # -----------------------------
 # Sanitize any passed variables untime provisioning: user info for runtime user. These should match host system so UID and GID match when writes
@@ -38,6 +45,7 @@ raw_USER_GROUP_NAME="$(sanitize_name "$USER_GROUP_NAME")"
 raw_USER_NAME="$(sanitize_name "$USER_NAME")"
 raw_USER_SHELL="$(sanitize_path "$USER_SHELL")"
 raw_USER_HOME="$(sanitize_path "$USER_HOME")"
+raw_USER_GROUPS="$(sanitize_supp_groups "$USER_GROUPS")"
 
 # provision using sanitized values
 USER_UID="${raw_USER_UID:-1000}"
@@ -46,6 +54,7 @@ USER_GROUP_NAME="${raw_USER_GROUP_NAME:-user}"
 USER_NAME="${raw_USER_NAME:-user}"
 USER_SHELL="${raw_USER_SHELL:-/bin/bash}"
 USER_HOME="${raw_USER_HOME:-/home/$USER_NAME}"
+USER_GROUPS="${raw_USER_GROUPS:-}"
 
 # -----------------------------
 # Ceate symlinks, report errors
@@ -105,7 +114,7 @@ if [ -z "$USER_UID" ] || \
 fi
 
 # -----------------------------
-# Create group. probably shouldn't exist yet
+# Create user primary group. probably shouldn't exist yet
 # -----------------------------
 info "Creating user group $USER_GROUP_NAME"
 if ! getent group "$USER_GROUP_NAME" >/dev/null; then
@@ -153,6 +162,59 @@ if chown -R "$USER_UID:$USER_GROUP_GID" "$USER_HOME"; then
 else
     warn "[HOME] Failed to set ownership for \e[1;31m$USER_HOME\e[0m"
 fi
+
+# -----------------------------
+# Create supplemental groups from runtime arg - if not empty
+# Format: "group1:gid1,group2:gid2"
+# -----------------------------
+if [ -n "$USER_GROUPS" ]; then
+    info "Creating supplementary groups: $USER_GROUPS"
+    count=0
+    added=0
+
+    IFS=',' read -ra group_entries <<< "$USER_GROUPS"
+    for entry in "${group_entries[@]}"; do
+        let count+=1
+        # Split & sanitize - probably no need to do it on the split variables if done above
+        group_name_raw=$(printf '%s' "$entry" | cut -d: -f1)
+        group_gid_raw=$(printf '%s' "$entry" | cut -d: -f2)
+
+        group_name=$(sanitize_name "$group_name_raw")
+        group_gid=$(sanitize_numeric "$group_gid_raw")
+
+        # Check for empty values
+        if [ -z "$group_name" ] || [ -z "$group_gid" ]; then
+            warn "[SUPP_GROUP] Skipping empty value #$count."
+            continue
+        fi
+
+        # Create group if missing
+        if ! getent group "$group_name" >/dev/null; then
+            
+            if groupadd -g "$group_gid" "$group_name"; then
+                success "[SUPP_GROUP] Created group $group_name"
+            else
+                warn "[SUPP_GROUP] Failed to create group $group_name"
+                continue
+            fi
+        else
+            warn "[SUPP_GROUP] Group $group_name already exists"
+        fi
+
+        # Add user to this supplementary group
+        if usermod -aG "$group_name" "$USER_NAME"; then
+            let added+=1
+        else
+            warn "[SUPP_GROUP] Failed to add $USER_NAME to $group_name"
+        fi
+    done
+
+    info "[SUPP_GROUP] add user to $added/$count supplementary groups"
+else
+    info "USER_GROUPS is empty—skipping supplementary group setup."
+fi
+
+
 
 # -----------------------------
 # Append custom bashrc additions
