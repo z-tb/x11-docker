@@ -10,7 +10,7 @@ IMAGE_NAME       := x11-image
 CONTAINER_NAME   := x11-test
 
 # Host and container paths
-HOST_PATH        := /home/src/
+HOST_PATH        := /home/apps/
 CONT_APP_MNT     := /apps
 
 # User info
