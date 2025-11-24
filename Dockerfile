@@ -46,40 +46,48 @@ COPY etc/bashrc-addition /tmp/
 
 # ----------------------------------------------------------------------
 # Base packages / X11 support / GUI app support
+# NOTE: --no-install-recommends actually removes kiro due to deps below
 # ----------------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
-    sudo \
-    git \
-    curl \
-    pass \
-    gnupg2 \
-    net-tools \
-    vim \
-    nano \
-    rsync \
-    strace \
-    lxde \
-    dbus \
-    dbus-x11 \
-    software-properties-common \
-    firefox \
-    libasound2t64 \
-    libx11-6 \
-    libxkbfile1 \
-    libsecret-1-0 \
-    libxss1 \
-    libnss3 \
-    libatk1.0-0 \
-    x11-apps \
-    x11-utils \
-    unzip
+   curl \
+   dbus \
+   dbus-x11 \
+   firefox \
+   git \
+   gnupg2 \
+   libasound2t64 \
+   libatk1.0-0 \
+   libnss3 \
+   libsecret-1-0 \
+   libx11-6 \
+   libxkbfile1 \
+   libxss1 \
+   lxde \
+   make \
+   nano \
+   net-tools \
+   pass \
+   python3-pip \
+   python3-pytest \
+   rsync \
+   software-properties-common \
+   strace \
+   sudo \
+   unzip \
+   vim \
+   x11-apps \
+   x11-utils \
+   && rm -rf /var/lib/apt/lists/*
+
+
+
 
 # ----------------------------------------------------------------------
 # Optional software installs
 # ----------------------------------------------------------------------
 RUN if [ "${WITH_KIRO}" = "1" ]; then \
       curl -fsSL -o /tmp/kiro.deb ${URL_KIRO} && \
-      dpkg -i /tmp/kiro.deb || apt-get install -f -y && \
+      dpkg -i /tmp/kiro.deb || apt-get install -y && \
       rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
     else echo "Skipping Kiro installation"; fi
 
@@ -98,13 +106,13 @@ RUN if [ "${WITH_TOFU}" = "1" ]; then \
 # Install VSCode
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_VSCODE} -o install.deb && \
-      apt install ./install.deb && rm ./install.deb; \
+      apt install -y ./install.deb && rm ./install.deb; \
     else echo "Skipping VS Code installation"; fi
 
 # Install Cursor
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
       cd /tmp && curl -fsSL ${URL_CURSOR} -o install.deb && \
-      apt install ./install.deb && rm ./install.deb; \
+      apt install -y ./install.deb && rm ./install.deb; \
     else echo "Skipping Cursor installation"; fi
 
 # Install Claude system-wide under /usr/local/bin
