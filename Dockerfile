@@ -71,6 +71,7 @@ RUN apt-get update && apt-get install -y \
    python3-pytest \
    rsync \
    software-properties-common \
+   sqlite3 \
    strace \
    sudo \
    unzip \
