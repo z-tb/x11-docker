@@ -27,7 +27,8 @@ ARG WITH_CLAUDE
 # URLs for external downloads
 # ----------------------------------------------------------------------
 #ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/202511032205--distro-linux-x64-deb/202511032205-distro-linux-x64.deb"
-ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.6.32/deb/kiro-ide-0.6.32-stable-linux-x64.deb"
+#ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.6.32/deb/kiro-ide-0.6.32-stable-linux-x64.deb"
+ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.6.0/deb/kiro-ide-0.6.0-stable-linux-x64.deb"
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"

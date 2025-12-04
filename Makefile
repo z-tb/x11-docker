@@ -10,7 +10,7 @@ IMAGE_NAME       := x11-image
 CONTAINER_NAME   := x11-test
 
 # Host and container paths
-HOST_PATH        := /home/apps/
+HOST_PATH        := $(HOME)/apps/
 CONT_APP_MNT     := /apps
 
 # User info
@@ -263,9 +263,9 @@ supgroups: info
 # Launch a nested X11 server via Xephyr (:1) and run the container inside it.
 # Useful for isolating the container's GUI from the main desktop session.
 xrunx:
-	Xephyr :1 -ac -screen 1280x720 & \
+	Xephyr :2 -ac -screen 1280x720 & \
 	docker run -it --rm \
-		--env DISPLAY=:1 \
+		--env DISPLAY=:2 \
 		--env USER=$(USER_NAME) \
 		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
 		--volume $(HOST_PATH):/app:rw \
@@ -275,6 +275,7 @@ xrunx:
 		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
 		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
 		--user $(USER_UID):$(USER_GROUP_GID) \
+		--entrypoint "" \
 		$(IMAGE_NAME) /bin/bash
 
 
