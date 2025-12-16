@@ -278,6 +278,34 @@ xrunx:
 		--entrypoint "" \
 		$(IMAGE_NAME) /bin/bash
 
+xrunxfix:
+	Xephyr :5 -ac -screen 1280x720 & \
+	@SSH_FORWARD=""; \
+	if [ -n "$$SSH_AUTH_SOCK" ]; then \
+		SSH_FORWARD="--env SSH_AUTH_SOCK=$$SSH_AUTH_SOCK --volume $$SSH_AUTH_SOCK:$$SSH_AUTH_SOCK"; \
+	else \
+		echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent."; \
+	fi; \
+	docker run -it --rm --shm-size=1g \
+		--name $(CONTAINER_NAME) \
+		--hostname $(IMAGE_NAME) \
+		--env DISPLAY=:5 \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--env USER_UID=$(USER_UID) \
+		--env USER_GROUP_GID=$(USER_GROUP_GID) \
+		--env USER_GROUP_NAME=$(USER_GROUP_NAME) \
+		--env USER_NAME=$(USER_NAME) \
+		--env USER_SHELL=$(USER_SHELL) \
+		--env USER_HOME=$(USER_HOME) \
+		--env USER_GROUPS='$(SUPP_GROUPS)' \
+		$$SSH_FORWARD \
+		--volume ${USER_HOME}/.kiro:${USER_HOME}/.kiro:rw \
+		--volume ${USER_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw \
+		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
+		--volume $(HOST_PATH):/apps:rw \
+		--gpus all \
+		--volume /dev/dri:/dev/dri \
+		$(IMAGE_NAME)
 
 # Set your Docker Hub username, or override on CLI: make push DOCKER_USER=foo
 DOCKER_USER ?= $(USER_NAME)
