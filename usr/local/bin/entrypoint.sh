@@ -283,4 +283,5 @@ success "Runtime user provisioning complete. Starting shell for \033[1;34m${USER
 # info "Setting password for $USER_NAME. You will need this for sudo in the container."
 # sudo passwd "$USER_NAME" || exit
 # echo "$USER_NAME ALL=(ALL:ALL) ALL" | sudo tee /etc/sudoers.d/sudo-users >/dev/null
-exec sudo -u "$USER_NAME" -H bash
+#exec sudo -u "$USER_NAME" -H bash
+exec sudo --preserve-env=SSH_AUTH_SOCK,DISPLAY -u "$USER_NAME" -H bash
