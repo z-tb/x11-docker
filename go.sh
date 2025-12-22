@@ -31,6 +31,7 @@ docker run -it --rm --shm-size=1g \
   --env USER_SHELL="/bin/bash" \
   --env USER_HOME="${USER_HOME}" \
   --env USER_GROUPS="$SUPP_GROUPS" \
+  --env SSH_AUTH_SOCK=/ssh-agent \
   $SSH_FORWARD \
   --volume "./jtid/.kiro:${USER_HOME}/.kiro:rw" \
   --volume "./jtid/.config/Kiro:${USER_HOME}/.config/Kiro:rw" \
