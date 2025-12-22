@@ -89,38 +89,38 @@ RUN apt-get update && apt-get install -y \
 # Optional software installs
 # ----------------------------------------------------------------------
 RUN if [ "${WITH_KIRO}" = "1" ]; then \
-      curl -fsSL -o /tmp/kiro.deb ${URL_KIRO} && \
+      curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60 -o /tmp/kiro.deb ${URL_KIRO} && \
       dpkg -i /tmp/kiro.deb || apt-get install -y && \
       rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
     else echo "Skipping Kiro installation"; fi
 
 # Install AWS CLI
 RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
-      cd /tmp && curl -fsSL ${URL_AWS_CLI} -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
-      curl -fsSL ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
+      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_AWS_CLI} -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
+      curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
     else echo "Skipping AWS Cli installation"; fi
 
 # Install OpenTofu
 RUN if [ "${WITH_TOFU}" = "1" ]; then \
-      cd /tmp && curl -fsSL ${URL_TOFU} -o install.sh && \
+      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_TOFU} -o install.sh && \
       chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
     else echo "Skipping OpenTofu installation"; fi
 
 # Install VSCode
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
-      cd /tmp && curl -fsSL ${URL_VSCODE} -o install.deb && \
+      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_VSCODE} -o install.deb && \
       apt install -y ./install.deb && rm ./install.deb; \
     else echo "Skipping VS Code installation"; fi
 
 # Install Cursor
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
-      cd /tmp && curl -fsSL ${URL_CURSOR} -o install.deb && \
+      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_CURSOR} -o install.deb && \
       apt install -y ./install.deb && rm ./install.deb; \
     else echo "Skipping Cursor installation"; fi
 
 # Install Claude system-wide under /usr/local/bin
 RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
-      cd /tmp && curl -fsSL ${URL_CLAUDE} -o install.sh && \
+      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_CLAUDE} -o install.sh && \
       chmod +x install.sh && ./install.sh && \
       # Find the actual binary and copy to system location \
       CLAUDE_BINARY=$(readlink -f ~/.local/bin/claude) && \
