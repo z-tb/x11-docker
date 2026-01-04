@@ -28,9 +28,9 @@ DOCKER_GID       := $(shell getent group docker | cut -d: -f3)
 WITH_KIRO        ?= 1
 WITH_AWS_CLI     ?= 1
 WITH_TOFU        ?= 1
-WITH_CURSOR      ?= 1
+WITH_CURSOR      ?= 0
 WITH_VSCODE      ?= 1
-WITH_CLAUDE      ?= 1
+WITH_CLAUDE      ?= 0
 
 # ----------------------------------------------------------------------
 # supplemental groups for runtime user add to the container user

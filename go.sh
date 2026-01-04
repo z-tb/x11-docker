@@ -34,8 +34,8 @@ docker run -it --rm --shm-size=1g \
   --env SSH_AUTH_SOCK=/ssh-agent \
   $SSH_FORWARD \
   --volume "./jtid/.kiro:${USER_HOME}/.kiro:rw" \
-  --volume "./jtid/.config/Kiro:${USER_HOME}/.config/Kiro:rw" \
   --volume "${HOME}/.gitconfig:${USER_HOME}/.gitconfig:rw" \
+  --volume "./jtid/.config/Kiro:${USER_HOME}/.config/Kiro:rw" \
   --volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
   --volume "${HOST_PATH}:/home/src:rw" \
   --gpus all \
