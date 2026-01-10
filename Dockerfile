@@ -57,6 +57,7 @@ RUN apt-get update && apt-get install -y \
    firefox \
    git \
    gnupg2 \
+   jq \
    libasound2t64 \
    libatk1.0-0 \
    libnss3 \
