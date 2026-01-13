@@ -28,12 +28,12 @@ ARG WITH_CLAUDE
 # ----------------------------------------------------------------------
 #ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/202511032205--distro-linux-x64-deb/202511032205-distro-linux-x64.deb"
 #ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.6.32/deb/kiro-ide-0.6.32-stable-linux-x64.deb"
-ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.8.0/deb/kiro-ide-0.8.0-stable-linux-x64.deb"
+ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.8.86/deb/kiro-ide-0.8.86-stable-linux-x64.deb"
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
-ARG URL_VSCODE="https://vscode.download.prss.microsoft.com/dbazure/download/stable/7d842fb85a0275a4a8e4d7e040d2625abbf7f084/code_1.105.1-1760482543_amd64.deb"
-ARG URL_CURSOR="https://downloads.cursor.com/production/63fcac100bd5d5749f2a98aa47d65f6eca61db39/linux/x64/deb/amd64/deb/cursor_2.0.69_amd64.deb"
+ARG URL_VSCODE="https://vscode.download.prss.microsoft.com/dbazure/download/stable/94e8ae2b28cb5cc932b86e1070569c4463565c37/code_1.108.0-1767881962_amd64.deb"
+ARG URL_CURSOR="https://downloads.cursor.com/production/643ba67cd252e2888e296dd0cf34a0c5d7625b96/linux/x64/deb/amd64/deb/cursor_2.3.34_amd64.deb"
 ARG URL_CLAUDE="https://claude.ai/install.sh"
 
 # ----------------------------------------------------------------------
@@ -72,6 +72,7 @@ RUN apt-get update && apt-get install -y \
    pass \
    python3-pip \
    python3-pyotp \
+   python3-pyflakes \
    python3-pytest \
    rsync \
    software-properties-common \
