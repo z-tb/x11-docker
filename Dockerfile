@@ -28,11 +28,12 @@ ARG WITH_CLAUDE
 # ----------------------------------------------------------------------
 #ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/202511032205--distro-linux-x64-deb/202511032205-distro-linux-x64.deb"
 #ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.6.32/deb/kiro-ide-0.6.32-stable-linux-x64.deb"
-ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.8.86/deb/kiro-ide-0.8.86-stable-linux-x64.deb"
+ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.8.135/deb/kiro-ide-0.8.135-stable-linux-x64.deb"
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
-ARG URL_VSCODE="https://vscode.download.prss.microsoft.com/dbazure/download/stable/94e8ae2b28cb5cc932b86e1070569c4463565c37/code_1.108.0-1767881962_amd64.deb"
+# VSC direct download link: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
+ARG URL_VSCODE="https://vscode.download.prss.microsoft.com/dbazure/download/stable/585eba7c0c34fd6b30faac7c62a42050bfbc0086/code_1.108.1-1768404234_amd64.deb"
 ARG URL_CURSOR="https://downloads.cursor.com/production/643ba67cd252e2888e296dd0cf34a0c5d7625b96/linux/x64/deb/amd64/deb/cursor_2.3.34_amd64.deb"
 ARG URL_CLAUDE="https://claude.ai/install.sh"
 
