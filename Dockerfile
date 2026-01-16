@@ -55,6 +55,7 @@ RUN apt-get update && apt-get install -y \
    curl \
    dbus \
    dbus-x11 \
+   dnsutils \
    firefox \
    git \
    gnupg2 \
