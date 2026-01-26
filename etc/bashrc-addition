@@ -72,7 +72,10 @@ alias glog='git log --pretty --oneline'
 # apps
 #------------------------------------------------------------------
 # kiro can only run this way in the container
-alias ks="kiro --no-sandbox"
+alias ks="/bin/kiro --no-sandbox"
+alias kiro="/bin/kiro --no-sandbox"
+alias code="/bin/code --disable-chromium-sandbox --no-sandbox"
+
 
 
 #------------------------------------------------------------------
