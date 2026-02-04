@@ -52,6 +52,7 @@ COPY etc/bashrc-addition /tmp/
 # NOTE: --no-install-recommends actually removes kiro due to deps below
 # ----------------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
+   ansible-lint \
    curl \
    dbus \
    dbus-x11 \
@@ -59,6 +60,7 @@ RUN apt-get update && apt-get install -y \
    firefox \
    git \
    gnupg2 \
+   iputils-ping \
    jq \
    libasound2t64 \
    libatk1.0-0 \
