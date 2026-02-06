@@ -26,14 +26,12 @@ ARG WITH_CLAUDE
 # ----------------------------------------------------------------------
 # URLs for external downloads
 # ----------------------------------------------------------------------
-#ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/202511032205--distro-linux-x64-deb/202511032205-distro-linux-x64.deb"
-#ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.6.32/deb/kiro-ide-0.6.32-stable-linux-x64.deb"
-ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.8.135/deb/kiro-ide-0.8.135-stable-linux-x64.deb"
+# current version can be retrieved this way: $ curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-deb-stable.json | jq -r .currentRelease
+# ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.9.2/deb/kiro-ide-0.9.2-stable-linux-x64.deb"
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
-# VSC direct download link: https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64
-ARG URL_VSCODE="https://vscode.download.prss.microsoft.com/dbazure/download/stable/585eba7c0c34fd6b30faac7c62a42050bfbc0086/code_1.108.1-1768404234_amd64.deb"
+ARG URL_VSCODE="https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"
 ARG URL_CURSOR="https://downloads.cursor.com/production/643ba67cd252e2888e296dd0cf34a0c5d7625b96/linux/x64/deb/amd64/deb/cursor_2.3.34_amd64.deb"
 ARG URL_CLAUDE="https://claude.ai/install.sh"
 
@@ -96,8 +94,13 @@ RUN apt-get update && apt-get install -y \
 # Optional software installs
 # ----------------------------------------------------------------------
 RUN if [ "${WITH_KIRO}" = "1" ]; then \
-      curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60 -o /tmp/kiro.deb ${URL_KIRO} && \
-      dpkg -i /tmp/kiro.deb || apt-get install -y && \
+      echo "Fetching latest Kiro IDE version..." && \
+      KIRO_VERSION=$(curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-deb-stable.json | jq -r .currentRelease) && \
+      echo "Latest Kiro IDE version: ${KIRO_VERSION}" && \
+      URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/${KIRO_VERSION}/deb/kiro-ide-${KIRO_VERSION}-stable-linux-x64.deb" && \
+      echo "Downloading from: ${URL_KIRO}" && \
+      curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60 -o /tmp/kiro.deb "${URL_KIRO}" && \
+      dpkg -i /tmp/kiro.deb || apt-get install -f -y && \
       rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
     else echo "Skipping Kiro installation"; fi
 
