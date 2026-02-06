@@ -67,7 +67,7 @@ build: info
 # Rebuild the image without cache
 # Useful when Dockerfile changes or when forcing a clean rebuild.
 rebuild: info
-	docker build --no-cache \
+	docker build --no-cache --progress=plain\
 		--build-arg USER_UID=$(USER_UID) \
 		--build-arg USER_GROUP_GID=$(USER_GROUP_GID) \
 		--build-arg USER_GROUP_NAME=$(USER_GROUP_NAME) \
