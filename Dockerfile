@@ -31,7 +31,7 @@ ARG WITH_CLAUDE
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
-ARG URL_VSCODE="https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"
+#ARG URL_VSCODE="https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"
 ARG URL_CURSOR="https://downloads.cursor.com/production/643ba67cd252e2888e296dd0cf34a0c5d7625b96/linux/x64/deb/amd64/deb/cursor_2.3.34_amd64.deb"
 ARG URL_CLAUDE="https://claude.ai/install.sh"
 
@@ -116,11 +116,18 @@ RUN if [ "${WITH_TOFU}" = "1" ]; then \
       chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
     else echo "Skipping OpenTofu installation"; fi
 
-# Install VSCode
+
+# Install VSCode - latest via apt
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
-      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_VSCODE} -o install.deb && \
-      apt install -y ./install.deb && rm ./install.deb; \
+      cd /tmp && \
+      curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg && \
+      install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg && \
+      rm -f packages.microsoft.gpg && \
+      echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list && \
+      apt-get update && apt-get install -y code && \
+      rm -rf /var/lib/apt/lists/*; \
     else echo "Skipping VS Code installation"; fi
+
 
 # Install Cursor
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
