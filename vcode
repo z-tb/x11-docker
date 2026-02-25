@@ -1,0 +1,219 @@
+#!/bin/bash
+# vcode — Open a file or directory in VSCode inside an x11-image container
+#
+# Usage: vcode <file|directory>
+#
+# This script is part of the x11-docker project. It creates a container from
+# the x11-image and launches VSCode inside it, displaying via the host X11
+# server. The container entrypoint provisions a runtime user whose UID and GID
+# match the host user, so file ownership is correct on volume mounts.
+# Supplemental groups are mirrored from the host to avoid permission problems
+# with files and directories that have group-based access restrictions.
+#
+# The target path is mounted into the container under /mnt/slash<path> so
+# host paths are accessible inside the container without conflicting with
+# any existing container paths.
+#
+# A persistent home directory is maintained on the host and mounted into the
+# container, giving VSCode consistent settings and extensions across sessions.
+#
+# VSCode is launched with --user-data-dir pointed at a container-private /tmp
+# directory to prevent multiple containers sharing the VSCode IPC socket via
+# the persistent home mount, which would cause files to open in the wrong
+# container. Settings are seeded from the persistent home before launch.
+#
+# Container lifecycle:
+#   A new container is started (vcode, vcode-2, vcode-3 ...),
+#   VSCode is launched inside it, and the container is stopped and removed
+#   when VSCode exits.
+#
+# Persistent home layout (auto-created if missing):
+#   $VCODE_HOMES/$USER_NAME/
+#   ├── .config/Code/User/   — VSCode settings and keybindings
+#   ├── .config/Code/extensions/ — VSCode extensions
+#   ├── .config/Kiro/        — Kiro settings
+#   ├── .kiro/               — Kiro data
+#   └── .ssh/                — SSH keys (used when no agent is forwarded)
+
+
+set -euo pipefail
+
+#
+# Constants
+#
+IMAGE_NAME="x11-image"                   # Docker image to run
+USER_NAME=${VCODE_USER:-jct}             # Create user "jct" in the container with same UID:GID as runtime user
+USER_HOME="/home/${USER_NAME}"           # Home directory path inside the container
+BASE_NAME="vcode"                        # Base name for editor containers
+VCODE_HOMES="${HOME}/.vcode-homes"       # Keep persistent per-user home directories under runtime user $HOME
+HOST_HOME="${VCODE_HOMES}/${USER_NAME}"  # This user's persistent home source
+SPINNERS='🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕡🕖🕢🕗🕣🕘🕤🕙🕥🕚🕦' # activity/waiting animation
+#
+# Colored output: info (green), warn (yellow), error (red + exit)
+#
+info()  { echo -e "\033[1;32m++ $*\033[0m"; }
+warn()  { echo -e "\033[1;33m** $*\033[0m"; }
+error() { echo -e "\033[1;31m!! $*\033[0m"; exit 1; }
+
+#
+# spin_until <msg> <cmd...> — show spinner until cmd succeeds
+#
+spin_until() {
+  local msg="$1"; shift
+  #local sp='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+  #local sp='▉▊▋▌▍▎▏▎▍▌▋▊▉' i=0
+  local i=0
+  until "$@" >/dev/null 2>&1; do
+    printf "\r\033[1;32m++ %s %s\033[0m" "$msg" "${SPINNERS:$((i % ${#SPINNERS})):1}"
+    i=$((i + 1)); sleep 0.2
+  done
+  printf "\r\033[K"
+}
+
+#
+# spin_while <msg> <cmd...> — show spinner while cmd succeeds
+#
+spin_while() {
+  local msg="$1"; shift
+  #local sp='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏' i=0
+  #local sp='▉▊▋▌▍▎▏▎▍▌▋▊▉' i=0
+  local i=0
+  while "$@" >/dev/null 2>&1; do
+    printf "\r\033[1;32m++ %s %s\033[0m" "$msg" "${SPINNERS:$((i % ${#SPINNERS})):1}"
+    i=$((i + 1)); sleep 0.2
+  done
+  printf "\r\033[K"
+}
+
+#
+# Resolve and validate the target path argument
+#
+[ $# -gt 0 ] || error "Usage: vcode <file|directory>"
+
+TARGET_HOST=$(realpath "$1")
+[ -e "$TARGET_HOST" ] || error "Not found: $TARGET_HOST"
+
+#
+# Mount the parent directory for files, or the directory itself
+#
+[ -f "$TARGET_HOST" ] \
+  && MOUNT_SOURCE=$(dirname "$TARGET_HOST") \
+  || MOUNT_SOURCE="$TARGET_HOST"
+
+#
+# Preserve the full host path under /mnt/slash to avoid container path conflicts
+#
+CONTAINER_MOUNT="/mnt/slash${MOUNT_SOURCE}"
+CODE_TARGET="/mnt/slash${TARGET_HOST}"
+
+#
+# Ensure persistent home directories exist on the host before mounting
+#
+mkdir -p \
+  "${HOST_HOME}/.config/Code" \
+  "${HOST_HOME}/.config/Kiro" \
+  "${HOST_HOME}/.kiro" \
+  "${HOST_HOME}/.ssh"
+
+#
+# Find the next available container name (conedit, conedit-2, conedit-3 ...)
+#
+CONTAINER_NAME="$BASE_NAME"
+i=2
+while docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; do
+  CONTAINER_NAME="${BASE_NAME}-${i}"; ((i++))
+done
+info "Starting $CONTAINER_NAME"
+
+#
+# SSH agent forwarding — prefer forwarded agent over key mounts
+#
+SSH_FORWARD=""
+if [ -n "${SSH_AUTH_SOCK:-}" ]; then
+  SSH_FORWARD="--env SSH_AUTH_SOCK=${SSH_AUTH_SOCK} --volume ${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK}"
+else
+  warn "No SSH agent detected — You'll need keys under ${HOST_HOME}/.ssh (not ideal)."
+fi
+
+#
+# Supplemental groups
+# The container entrypoint re-creates your group structure inside the container.
+# This is done to minimize issues with permissions on files accessed either instead or
+# outside of the docker container. The critical part is that the GIDs need to match exactly.
+# The group names are just labels to the GID but keeping them consistent with the
+# host environment just makes for better usability.
+#
+SUPP_GROUPS="$(id -nG | tr ' ' '\n' | while read -r g; do
+  printf "%s:%s," "$g" "$(getent group "$g" | cut -d: -f3)"
+done)"
+
+#
+# Start the container
+# --tty keeps the entrypoint bash process alive after user provisioning
+# --rm removes the container on exit
+#
+docker run --rm --detach --tty --shm-size=1g \
+  --name "$CONTAINER_NAME" \
+  --hostname "$IMAGE_NAME" \
+  --env DISPLAY="$DISPLAY" \
+  --env USER_UID="$(id -u)" \
+  --env USER_GROUP_GID="$(id -g)" \
+  --env USER_GROUP_NAME="$(id -gn)" \
+  --env USER_NAME="$USER_NAME" \
+  --env USER_SHELL="/bin/bash" \
+  --env USER_HOME="$USER_HOME" \
+  --env USER_GROUPS="$SUPP_GROUPS" \
+  $SSH_FORWARD \
+  --volume "${HOST_HOME}/.kiro:${USER_HOME}/.kiro:rw" \
+  --volume "${HOST_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw" \
+  --volume "${HOST_HOME}/.config/Code:${USER_HOME}/.config/Code:rw" \
+  --volume "${HOST_HOME}/.ssh:${USER_HOME}/.ssh:ro" \
+  --volume "${HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro" \
+  --volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+  --volume "${MOUNT_SOURCE}:${CONTAINER_MOUNT}:rw" \
+  --gpus all \
+  --volume /dev/dri:/dev/dri \
+  "$IMAGE_NAME"
+
+#
+# Wait for the entrypoint to finish provisioning the container user
+#
+spin_until "Waiting for user setup..." \
+  docker exec "$CONTAINER_NAME" test -d "$USER_HOME"
+
+
+# Copy persistent settings into the container-local user data dir so we don't collide with
+# additional containers sharing the vscode user's socket
+docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" bash -c "
+  mkdir -p /tmp/vscode/User &&
+  cp ${USER_HOME}/.config/Code/User/settings.json /tmp/vscode/User/ 2>/dev/null || true
+"
+
+#
+# Launch VSCode in the container as the provisioned user
+# use a new window so each vscode instance has it's own namespace
+#
+info "Opening $CODE_TARGET"
+docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" \
+  /bin/code \
+  --disable-chromium-sandbox \
+  --no-sandbox \
+  --disable-workspace-trust \
+  --user-data-dir /tmp/vscode-$(date +%N) \
+  --extensions-dir "${USER_HOME}/.config/Code/extensions" \
+  "$CODE_TARGET"
+  
+#
+# Wait for VSCode to fully start, then wait for it to exit
+#
+spin_until "VSCode starting..." \
+  docker exec "$CONTAINER_NAME" pgrep -u "$(id -u)" code
+spin_while "VSCode open..." \
+  docker exec "$CONTAINER_NAME" pgrep -u "$(id -u)" code
+
+#
+# Stop and remove the container cleanly after VSCode exits
+#
+docker stop --timeout 2 "$CONTAINER_NAME" &
+spin_while "Stopping $CONTAINER_NAME..." kill -0 $!
+info "Done"
