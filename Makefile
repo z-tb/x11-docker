@@ -252,6 +252,8 @@ supgroups: info
 		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
 		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
 		--volume $(HOST_PATH):/apps:rw \
+      --volume /etc/localtime:/etc/localtime:ro \
+      --volume /etc/timezone:/etc/timezone:ro \
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
 		$(IMAGE_NAME)
@@ -273,6 +275,8 @@ xrunx:
 		--volume /usr/share/alsa:/usr/share/alsa:ro \
 		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
 		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+      --volume /etc/localtime:/etc/localtime:ro \
+      --volume /etc/timezone:/etc/timezone:ro \
 		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
 		--user $(USER_UID):$(USER_GROUP_GID) \
 		--entrypoint "" \
@@ -303,6 +307,8 @@ xrunxfix:
 		--volume ${USER_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw \
 		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
 		--volume $(HOST_PATH):/apps:rw \
+      --volume /etc/localtime:/etc/localtime:ro \
+      --volume /etc/timezone:/etc/timezone:ro \
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
 		$(IMAGE_NAME)
