@@ -184,9 +184,10 @@ spin_until "Waiting for user setup..." \
 
 # Copy persistent settings into the container-local user data dir so we don't collide with
 # additional containers sharing the vscode user's socket
+VSCODE_TMP="/tmp/vscode-$(date +%N)"
 docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" bash -c "
-  mkdir -p /tmp/vscode/User &&
-  cp ${USER_HOME}/.config/Code/User/settings.json /tmp/vscode/User/ 2>/dev/null || true
+  mkdir -p ${VSCODE_TMP}/User &&
+  cp ${USER_HOME}/.config/Code/User/settings.json ${VSCODE_TMP}/User/ 2>/dev/null || true
 "
 
 #
@@ -199,7 +200,7 @@ docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" \
   --disable-chromium-sandbox \
   --no-sandbox \
   --disable-workspace-trust \
-  --user-data-dir /tmp/vscode-$(date +%N) \
+  --user-data-dir "$VSCODE_TMP" \
   --extensions-dir "${USER_HOME}/.config/Code/extensions" \
   "$CODE_TARGET"
   
