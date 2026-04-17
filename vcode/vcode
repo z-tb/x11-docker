@@ -152,6 +152,7 @@ done)"
 # --tty keeps the entrypoint bash process alive after user provisioning
 # --rm removes the container on exit
 #
+# TODO: Can we can mount $HOST_HOME/ right onto $USER_HOME/ for persistence? This wasn't a good pattern previously since files from host $HOME were being mounted but now with segregated $HOST_HOME this could possibly be revisted (eg: github login)
 docker run --rm --detach --tty --shm-size=1g \
   --name "$CONTAINER_NAME" \
   --hostname "$IMAGE_NAME" \
