@@ -154,6 +154,7 @@ done)"
 #
 # TODO: Can we can mount $HOST_HOME/ right onto $USER_HOME/ for persistence? This wasn't a good pattern previously since files from host $HOME were being mounted but now with segregated $HOST_HOME this could possibly be revisted (eg: github login)
 docker run --rm --detach --tty --shm-size=1g \
+  --ipc=host \
   --name "$CONTAINER_NAME" \
   --hostname "$IMAGE_NAME" \
   --env DISPLAY="$DISPLAY" \
@@ -194,7 +195,7 @@ docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" bash -c "
 #
 # Launch VSCode in the container as the provisioned user
 # use a new window so each vscode instance has it's own namespace
-#
+# 
 info "Opening $CODE_TARGET"
 docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" \
   /bin/code \

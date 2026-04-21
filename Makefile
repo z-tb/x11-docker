@@ -89,12 +89,12 @@ rebuild: info
 # ----------------------------------------------------------------------
 # Run the container normally (interactive, uses container's default CMD)
 run: info
-	docker run -it --name $(CONTAINER_NAME) $(IMAGE_NAME)
+	docker run --ipc=host -it --name $(CONTAINER_NAME) $(IMAGE_NAME)
 
 # Run the container with host apps mounted, auto-remove after exit
 # Useful for quick testing with access to ./apps on the host.
 runm: info
-	docker run -it --rm -v $(HOST_PATH):/apps $(IMAGE_NAME) /bin/bash
+	docker run --ipc=host -it --rm -v $(HOST_PATH):/apps $(IMAGE_NAME) /bin/bash
 
 # Stop container by name
 stop:
@@ -134,6 +134,7 @@ info:
 # Mounts host ALSA and PulseAudio paths and runs as host user.
 runx: info
 	docker run -it --rm \
+	   --ipc=host \
 		--user 1000:1000 \
 		--env TARGET_UID=$(USER_UID) \
 		--env TARGET_GID=$(USER_GROUP_GID) \
@@ -169,6 +170,7 @@ runx2: info
 		echo "⚠️  SSH_AUTH_SOCK not set on host; you will need to mount ~/.ssh manually or start an ssh-agent."; \
 	fi; \
 	docker run -it --rm --shm-size=1g \
+		--ipc=host \
 		--name $(CONTAINER_NAME) \
 		--hostname $(IMAGE_NAME) \
 		--env DISPLAY=$(DISPLAY) \
@@ -204,6 +206,7 @@ etctest: info
 		echo "⚠️  SSH_AUTH_SOCK not set on host; you will need to mount ~/.ssh manually or start an ssh-agent."; \
 	fi; \
 	docker run -it --rm --shm-size=1g \
+		--ipc=host \
 		--name $(CONTAINER_NAME) \
 		--hostname $(IMAGE_NAME) \
 		--env DISPLAY=$(DISPLAY) \
@@ -236,6 +239,7 @@ supgroups: info
 		echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent."; \
 	fi; \
 	docker run -it --rm --shm-size=1g \
+		--ipc=host \
 		--name $(CONTAINER_NAME) \
 		--hostname $(IMAGE_NAME) \
 		--env DISPLAY=$(DISPLAY) \
@@ -252,6 +256,8 @@ supgroups: info
 		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
 		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
 		--volume $(HOST_PATH):/apps:rw \
+      --volume /etc/localtime:/etc/localtime:ro \
+      --volume /etc/timezone:/etc/timezone:ro \
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
 		$(IMAGE_NAME)
@@ -273,6 +279,8 @@ xrunx:
 		--volume /usr/share/alsa:/usr/share/alsa:ro \
 		--volume $(HOME)/.config/pulse:/home/$(USER_NAME)/.config/pulse:rw \
 		--volume /run/user/$(USER_UID)/pulse/native:/run/user/$(USER_UID)/pulse/native:rw \
+      --volume /etc/localtime:/etc/localtime:ro \
+      --volume /etc/timezone:/etc/timezone:ro \
 		--env PULSE_SERVER=unix:/run/user/$(USER_UID)/pulse/native \
 		--user $(USER_UID):$(USER_GROUP_GID) \
 		--entrypoint "" \
@@ -303,6 +311,8 @@ xrunxfix:
 		--volume ${USER_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw \
 		--volume ${USER_HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro \
 		--volume $(HOST_PATH):/apps:rw \
+      --volume /etc/localtime:/etc/localtime:ro \
+      --volume /etc/timezone:/etc/timezone:ro \
 		--gpus all \
 		--volume /dev/dri:/dev/dri \
 		$(IMAGE_NAME)
