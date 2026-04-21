@@ -153,6 +153,7 @@ done)"
 # --rm removes the container on exit
 #
 docker run --rm --detach --tty --shm-size=1g \
+  --ipc=host \
   --name "$CONTAINER_NAME" \
   --hostname "$IMAGE_NAME" \
   --env DISPLAY="$DISPLAY" \
@@ -193,7 +194,7 @@ docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" bash -c "
 #
 # Launch VSCode in the container as the provisioned user
 # use a new window so each vscode instance has it's own namespace
-#
+# 
 info "Opening $CODE_TARGET"
 docker exec --user "$(id -u):$(id -g)" "$CONTAINER_NAME" \
   /bin/code \
