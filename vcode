@@ -151,11 +151,12 @@ done)"
 # Start the container
 # --tty keeps the entrypoint bash process alive after user provisioning
 # --rm removes the container on exit
-#
+# *_MITSHM fixes window re-paint glitching over the X11 socket and closes hole introduced with --ipc=host
 docker run --rm --detach --tty --shm-size=1g \
-  --ipc=host \
   --name "$CONTAINER_NAME" \
   --hostname "$IMAGE_NAME" \
+  --env QT_X11_NO_MITSHM=1 \
+  --env XLIB_NO_MITSHM=1  \
   --env DISPLAY="$DISPLAY" \
   --env USER_UID="$(id -u)" \
   --env USER_GROUP_GID="$(id -g)" \
@@ -215,7 +216,6 @@ spin_while "VSCode open..." \
 
 #
 # Stop and remove the container cleanly after VSCode exits
-#
-docker stop --timeout 2 "$CONTAINER_NAME" &
+# docker stop --timeout 2 "$CONTAINER_NAME" &
 spin_while "Stopping $CONTAINER_NAME..." kill -0 $!
 info "Done"
