@@ -176,6 +176,29 @@ RUN if [ -f /bin/chromium ]; then \
     else echo "Chromium not installed, skipping flag fix"; fi
 
 # ----------------------------------------------------------------------
+# Install 1Password op CLI (latest)
+# ----------------------------------------------------------------------
+# Install 1Password CLI via APT (per 1Password’s official get‑started guide)
+RUN set -eux \
+    # Import 1Password public key
+    && curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
+        gpg --dearmor --batch --yes \
+            --output /usr/share/keyrings/1password-archive-keyring.gpg \
+    \
+    # Add 1Password APT repo (for amd64)
+    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main" \
+        > /etc/apt/sources.list.d/1password.list \
+    \
+    # Install 1Password CLI package
+    && apt-get update \
+    && apt-get install -y 1password-cli \
+    \
+    # Verify it’s there
+    && op --version
+
+
+
+# ----------------------------------------------------------------------
 # Append custom bash additions
 # ----------------------------------------------------------------------
 RUN cat /tmp/bashrc-addition >> /etc/bash.bashrc && rm /tmp/bashrc-addition

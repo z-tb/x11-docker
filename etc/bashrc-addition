@@ -75,7 +75,14 @@ alias glog='git log --pretty --oneline'
 alias ks="/bin/kiro --no-sandbox"
 alias kiro="/bin/kiro --no-sandbox"
 alias code="/bin/code --disable-chromium-sandbox --no-sandbox"
+alias tf="tofu"
 
+
+#------------------------------------------------------------------
+# aws cli aliases
+#------------------------------------------------------------------
+alias asl="aws s3 ls"
+alias aan="acc=\$(aws sts get-caller-identity --query \"Account\" --output text) && echo Retrieved AWS account: \$acc || echo 'Error retrieving AWS account'"
 
 
 #------------------------------------------------------------------

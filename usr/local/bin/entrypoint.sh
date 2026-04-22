@@ -230,6 +230,22 @@ else
     warn "[BASHRC] Custom bashrc additions already present"
 fi
 
+# symlink to bash/.bashrc.local
+bdir="${USER_HOME}/bash"
+if [ -d "$bdir" ]; then
+     success "[BASHRC] Found bash dir under \e[1;34m$USER_HOME/\e[0m"
+
+     if [ -f "$bdir/.bashrc.local" ]; then
+         success "[BASHRC] adding source line for .bashrc.local"
+         # Define the line we want to add
+         SOURCE_LINE="[[ -f ${bdir}/.bashrc.local ]] && . ${bdir}/.bashrc.local"
+         # Only append if it's not already there
+         grep -qF "$SOURCE_LINE" "${USER_HOME}/.bashrc" || echo "$SOURCE_LINE" >> "${USER_HOME}/.bashrc"
+     else
+         warn "[BASHRC] .bashrc.local not found in $bdir"
+     fi
+fi
+
 # -----------------------------
 # Mount-based symlinks for user config
 # -----------------------------
