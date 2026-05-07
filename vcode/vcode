@@ -217,6 +217,5 @@ spin_while "VSCode open..." \
 
 #
 # Stop and remove the container cleanly after VSCode exits
-# docker stop --timeout 2 "$CONTAINER_NAME" &
-spin_while "Stopping $CONTAINER_NAME..." kill -0 $!
+docker stop --timeout 2 "$CONTAINER_NAME" & spin_while "Stopping $CONTAINER_NAME..." kill -0 $!
 info "Done"
