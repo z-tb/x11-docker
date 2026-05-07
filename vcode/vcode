@@ -46,7 +46,7 @@ USER_NAME=${VCODE_USER:-jct}             # Create user "jct" in the container wi
 USER_HOME="/home/${USER_NAME}"           # Home directory path inside the container
 BASE_NAME="vcode"                        # Base name for editor containers
 VCODE_HOMES="${HOME}/.vcode-homes"       # Keep persistent per-user home directories under runtime user $HOME
-HOST_HOME="${VCODE_HOMES}/${USER_NAME}"  # This user's persistent home source
+VCODE_HOME="${VCODE_HOMES}/${USER_NAME}"  # This user's persistent home source
 SPINNERS='🕛🕧🕐🕜🕑🕝🕒🕞🕓🕟🕔🕠🕕🕡🕖🕢🕗🕣🕘🕤🕙🕥🕚🕦' # activity/waiting animation
 #
 # Colored output: info (green), warn (yellow), error (red + exit)
@@ -110,10 +110,10 @@ CODE_TARGET="/mnt/slash${TARGET_HOST}"
 # Ensure persistent home directories exist on the host before mounting
 #
 mkdir -p \
-  "${HOST_HOME}/.config/Code" \
-  "${HOST_HOME}/.config/Kiro" \
-  "${HOST_HOME}/.kiro" \
-  "${HOST_HOME}/.ssh"
+  "${VCODE_HOME}/.config/Code" \
+  "${VCODE_HOME}/.config/Kiro" \
+  "${VCODE_HOME}/.kiro" \
+  "${VCODE_HOME}/.ssh"
 
 #
 # Find the next available container name (conedit, conedit-2, conedit-3 ...)
@@ -132,7 +132,7 @@ SSH_FORWARD=""
 if [ -n "${SSH_AUTH_SOCK:-}" ]; then
   SSH_FORWARD="--env SSH_AUTH_SOCK=${SSH_AUTH_SOCK} --volume ${SSH_AUTH_SOCK}:${SSH_AUTH_SOCK}"
 else
-  warn "No SSH agent detected — You'll need keys under ${HOST_HOME}/.ssh (not ideal)."
+  warn "No SSH agent detected — You'll need keys under ${VCODE_HOME}/.ssh (not ideal)."
 fi
 
 #
@@ -153,7 +153,6 @@ done)"
 # --rm removes the container on exit
 # *_MITSHM fixes window re-paint glitching over the X11 socket and closes hole introduced with --ipc=host
 #
-# TODO: Can we can mount $HOST_HOME/ right onto $USER_HOME/ for persistence? This wasn't a good pattern previously since files from host $HOME were being mounted but now with segregated $HOST_HOME this could possibly be revisted (eg: github login)
 docker run --rm --detach --tty --shm-size=1g \
   --name "$CONTAINER_NAME" \
   --hostname "$IMAGE_NAME" \
@@ -168,11 +167,11 @@ docker run --rm --detach --tty --shm-size=1g \
   --env USER_HOME="$USER_HOME" \
   --env USER_GROUPS="$SUPP_GROUPS" \
   $SSH_FORWARD \
-  --volume "${HOST_HOME}/.kiro:${USER_HOME}/.kiro:rw" \
-  --volume "${HOST_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw" \
-  --volume "${HOST_HOME}/.config/Code:${USER_HOME}/.config/Code:rw" \
-  --volume "${HOST_HOME}/.ssh:${USER_HOME}/.ssh:ro" \
-  --volume "${HOME}/.gitconfig:${USER_HOME}/.gitconfig:ro" \
+  --volume "${VCODE_HOME}/.kiro:${USER_HOME}/.kiro:rw" \
+  --volume "${VCODE_HOME}/.config/Kiro:${USER_HOME}/.config/Kiro:rw" \
+  --volume "${VCODE_HOME}/.config/Code:${USER_HOME}/.config/Code:rw" \
+  --volume "${VCODE_HOME}/.gitconfig:${USER_HOME}/.gitconfig:rw" \
+  --volume "${VCODE_HOME}/.ssh:${USER_HOME}/.ssh:rw" \
   --volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
   --volume "${MOUNT_SOURCE}:${CONTAINER_MOUNT}:rw" \
   --gpus all \
