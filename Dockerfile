@@ -56,6 +56,7 @@ RUN apt-get update && apt-get install -y \
    dbus-x11 \
    dnsutils \
    firefox \
+   fonts-noto-color-emoji \
    git \
    gnupg2 \
    iputils-ping \
