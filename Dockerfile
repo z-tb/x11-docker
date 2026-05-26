@@ -47,29 +47,50 @@ COPY etc/bashrc-addition /tmp/
 
 # ----------------------------------------------------------------------
 # Base packages / X11 support / GUI app support
-# NOTE: --no-install-recommends actually removes kiro due to deps below
+# NOTES: 
+#       * --no-install-recommends actually removes kiro due to deps below.
+#       * The lxde package was installed previously since it pulls in deps needed by Kiro.
+#         I've removed it and instead used dpkg-deb -f kiro.deb to determine what libs are needed.
 # ----------------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
    ansible-lint \
+   ca-certificates \
    curl \
    dbus \
    dbus-x11 \
    dnsutils \
-   firefox \
    fonts-noto-color-emoji \
    git \
    gnupg2 \
+   iproute2 \
    iputils-ping \
    jq \
    libasound2t64 \
+   libatk-bridge2.0-0 \
    libatk1.0-0 \
+   libatspi2.0-0 \
+   libcairo2 \
+   libcups2 \
+   libcurl4 \
+   libgbm1 \
+   libglib2.0-0 \
+   libgtk-3-0 \
+   libnspr4 \
    libnss3 \
+   libpango-1.0-0 \
    libsecret-1-0 \
+   libvulkan1 \
    libx11-6 \
+   libxcb1 \
+   libxcomposite1 \
+   libxdamage1 \
+   libxext6 \
+   libxfixes3 \
+   libxkbcommon0 \
    libxkbfile1 \
+   libxrandr2 \
    libxss1 \
    locales \
-   lxde \
    make \
    nano \
    net-tools \
@@ -79,19 +100,21 @@ RUN apt-get update && apt-get install -y \
    python3-pyflakes \
    python3-pytest \
    rsync \
-   software-properties-common \
    sqlite3 \
    strace \
    sudo \
+   traceroute \
    tree \
    unzip \
    vim \
+   wget \
    x11-apps \
    x11-utils \
+   xdg-utils \
+   zip \
    && sed -i 's/^# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
    && locale-gen en_US.UTF-8 \
    && rm -rf /var/lib/apt/lists/*
-
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8 \
     LANGUAGE=en_US:en
@@ -102,6 +125,7 @@ ENV LANG=en_US.UTF-8 \
 # ----------------------------------------------------------------------
 # Optional software installs
 # ----------------------------------------------------------------------
+# fail the build if Kiro can't be installed
 RUN if [ "${WITH_KIRO}" = "1" ]; then \
       echo "Fetching latest Kiro IDE version..." && \
       KIRO_VERSION=$(curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-deb-stable.json | jq -r .currentRelease) && \
@@ -109,13 +133,20 @@ RUN if [ "${WITH_KIRO}" = "1" ]; then \
       URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/${KIRO_VERSION}/deb/kiro-ide-${KIRO_VERSION}-stable-linux-x64.deb" && \
       echo "Downloading from: ${URL_KIRO}" && \
       curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60 -o /tmp/kiro.deb "${URL_KIRO}" && \
-      dpkg -i /tmp/kiro.deb || apt-get install -f -y && \
-      rm /tmp/kiro.deb && rm -rf /var/lib/apt/lists/*; \
-    else echo "Skipping Kiro installation"; fi
+      dpkg -i /tmp/kiro.deb || (apt-get install -f -y && dpkg -i /tmp/kiro.deb) && \
+      which kiro || { echo "❌ Kiro binary not found after install - build failed"; exit 1; } && \
+      su -s /bin/sh -c "kiro --version" nobody || { echo "❌ Kiro failed to run - build failed"; exit 1; } && \
+      rm /tmp/kiro.deb && \
+      rm -rf /var/lib/apt/lists/*; \
+    else echo "Skipping Kiro installation"; fi    
 
 # Install AWS CLI
 RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
-      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_AWS_CLI} -o awscliv2.zip && unzip awscliv2.zip && ./aws/install && \
+      echo "Downloading AWS Cli..." && \
+      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_AWS_CLI} -o awscliv2.zip && \
+      unzip awscliv2.zip >/dev/null  && \
+      echo "Installing AWS Cli..." && \
+      ./aws/install >/dev/null && \
       curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
     else echo "Skipping AWS Cli installation"; fi
 
@@ -216,6 +247,14 @@ RUN cat /tmp/bashrc-addition >> /etc/bash.bashrc && rm /tmp/bashrc-addition
 # ----------------------------------------------------------------------
 COPY ./usr/local/bin/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
+
+
+# ----------------------------------------------------------------------
+# Add some capability to the container
+# Avoids needing NET_RAW granted to the whole container at runtime.
+# ----------------------------------------------------------------------
+RUN setcap cap_net_raw+ep $(readlink -f $(which ping))        && \
+    setcap cap_net_raw+ep $(readlink -f $(which traceroute))
 
 # ----------------------------------------------------------------------
 # Default ENTRYPOINT (runs bash shell)
