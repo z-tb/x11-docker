@@ -22,6 +22,8 @@ ARG WITH_TOFU
 ARG WITH_CURSOR
 ARG WITH_VSCODE
 ARG WITH_CLAUDE
+ARG WITH_BREW
+ARG WITH_SPACECTL
 
 # ----------------------------------------------------------------------
 # URLs for external downloads
@@ -186,6 +188,37 @@ RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
       # Clean up \
       rm install.sh && rm -rf ~/.local/bin/claude; \
     else echo "Skipping Claude installation"; fi
+
+# ----------------------------------------------------------------------
+# Homebrew / spacectl
+# ----------------------------------------------------------------------
+RUN if [ "${WITH_BREW}" = "1" ] || [ "${WITH_SPACECTL}" = "1" ]; then \
+      echo "Creating brew user..." && \
+      groupadd -r brew && \
+      useradd -r -g brew -m -s /bin/bash brew && \
+      mkdir -p /home/linuxbrew/.linuxbrew && \
+      chown -R brew:brew /home/linuxbrew && \
+      \
+      echo "Installing Homebrew..." && \
+      su - brew -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' && \
+      \
+      test -x /home/linuxbrew/.linuxbrew/bin/brew || { echo "❌ brew not found after install"; exit 1; } && \
+      \
+      su - brew -c '/home/linuxbrew/.linuxbrew/bin/brew --version'; \
+    else \
+      echo "Skipping Homebrew installation"; \
+    fi
+
+# Install spacectl via Homebrew
+RUN if [ "${WITH_SPACECTL}" = "1" ]; then \
+      echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /etc/bash.bashrc && \
+      su - brew -c 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
+        brew tap spacelift-io/spacelift && \
+        brew install spacelift-io/spacelift/spacectl && \
+        spacectl version'; \
+    else \
+      echo "Skipping spacectl installation"; \
+    fi
 
 # ----------------------------------------------------------------------
 # Fonts

@@ -31,6 +31,8 @@ WITH_TOFU        ?= 1
 WITH_CURSOR      ?= 0
 WITH_VSCODE      ?= 1
 WITH_CLAUDE      ?= 0
+WITH_BREW        ?= 0
+WITH_SPACECTL    ?= 0
 
 # ----------------------------------------------------------------------
 # supplemental groups for runtime user add to the container user
@@ -62,6 +64,8 @@ build: info
 		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
 		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
 		--build-arg WITH_CLAUDE=$(WITH_CLAUDE) \
+		--build-arg WITH_BREW=$(WITH_BREW) \
+		--build-arg WITH_SPACECTL=$(WITH_SPACECTL) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 # Rebuild the image without cache
@@ -82,6 +86,8 @@ rebuild: info
 		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
 		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
 		--build-arg WITH_CLAUDE=$(WITH_CLAUDE) \
+		--build-arg WITH_BREW=$(WITH_BREW) \
+		--build-arg WITH_SPACECTL=$(WITH_SPACECTL) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 # ----------------------------------------------------------------------
@@ -124,6 +130,8 @@ info:
 	@echo "WITH_CURSOR=$(WITH_CURSOR)"
 	@echo "WITH_VSCODE=$(WITH_VSCODE)"
 	@echo "WITH_CLAUDE=$(WITH_CLAUDE)"
+	@echo "WITH_BREW=$(WITH_BREW)"
+	@echo "WITH_SPACECTL=$(WITH_SPACECTL)"
 	@echo
 
 # ----------------------------------------------------------------------
