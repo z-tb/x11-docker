@@ -121,5 +121,7 @@ function pcol() {
 #------------------------------------------------------------------
 export EDITOR=vim
 
-
+#------------------------------------------------------------------
+# if brew is installed, add this to the user environment
+#------------------------------------------------------------------
 test -f /home/linuxbrew/.linuxbrew/bin/brew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
