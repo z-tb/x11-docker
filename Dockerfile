@@ -192,6 +192,7 @@ RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
 # ----------------------------------------------------------------------
 # Homebrew / spacectl
 # ----------------------------------------------------------------------
+# Always define because brew MAY exist depending on flags
 RUN if [ "${WITH_BREW}" = "1" ] || [ "${WITH_SPACECTL}" = "1" ]; then \
       echo "Creating brew user..." && \
       groupadd -r brew && \
