@@ -61,6 +61,7 @@ RUN apt-get update && apt-get install -y \
    dbus \
    dbus-x11 \
    dnsutils \
+   file \
    fonts-noto-color-emoji \
    git \
    gnupg2 \
