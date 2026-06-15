@@ -103,6 +103,7 @@ RUN apt-get update && apt-get install -y \
    python3-pyotp \
    python3-pyflakes \
    python3-pytest \
+   python3-boto3 \
    rsync \
    sqlite3 \
    strace \
