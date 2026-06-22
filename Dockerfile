@@ -8,7 +8,7 @@
 # at runtime, along with runtime user provisioning via an entrypoint script.
 #
 # ----------------------------------------------------------------------
-FROM nvidia/cuda:13.0.1-runtime-ubuntu24.04
+FROM nvidia/cuda:13.3.0-runtime-ubuntu24.04
 
 # Don't prompt for input during build
 ARG DEBIAN_FRONTEND=noninteractive
@@ -24,23 +24,22 @@ ARG WITH_VSCODE
 ARG WITH_CLAUDE
 ARG WITH_BREW
 ARG WITH_SPACECTL
+ARG WITH_GHCLI
 
 # ----------------------------------------------------------------------
 # URLs for external downloads
 # ----------------------------------------------------------------------
-# current version can be retrieved this way: $ curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-deb-stable.json | jq -r .currentRelease
-# ARG URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/0.9.2/deb/kiro-ide-0.9.2-stable-linux-x64.deb"
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
-#ARG URL_VSCODE="https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"
 ARG URL_CURSOR="https://downloads.cursor.com/production/643ba67cd252e2888e296dd0cf34a0c5d7625b96/linux/x64/deb/amd64/deb/cursor_2.3.34_amd64.deb"
 ARG URL_CLAUDE="https://claude.ai/install.sh"
 
 # ----------------------------------------------------------------------
-# Working directory
+# Working directory & Status Reports setup
 # ----------------------------------------------------------------------
 WORKDIR /apps
+RUN mkdir -p /tmp/build-report
 
 # ----------------------------------------------------------------------
 # Copy custom bash additions into /tmp
@@ -48,24 +47,41 @@ WORKDIR /apps
 COPY etc/bashrc-addition /tmp/
 
 # ----------------------------------------------------------------------
+# Pre-requisites for Third-Party Repos (gopass, etc)
+# ----------------------------------------------------------------------
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    curl \
+    gnupg2
+
+# ----------------------------------------------------------------------
+# Configure Third-Party Repos (gopass + CUDA Key Fix)
+# ----------------------------------------------------------------------
+RUN if [ -f /etc/apt/trusted.gpg ]; then \
+      gpg --no-default-keyring --keyring /etc/apt/trusted.gpg --export 24157E7A > /etc/apt/keyrings/cuda-archive-keyring.gpg 2>/dev/null || true; \
+      rm -f /etc/apt/trusted.gpg; \
+    fi \
+   && printf "\033[0;32mAdding gopass repository...\033[0m\n" \
+   && curl -fsSL https://packages.gopass.pw/repos/gopass/gopass-archive-keyring.gpg > /usr/share/keyrings/gopass-archive-keyring.gpg \
+   && printf "Types: deb\nURIs: https://packages.gopass.pw/repos/gopass\nSuites: stable\nArchitectures: all amd64 arm64 armhf\nComponents: main\nSigned-By: /usr/share/keyrings/gopass-archive-keyring.gpg\n" > /etc/apt/sources.list.d/gopass.sources
+
+# ----------------------------------------------------------------------
 # Base packages / X11 support / GUI app support
-# NOTES: 
-#       * --no-install-recommends actually removes kiro due to deps below.
-#       * The lxde package was installed previously since it pulls in deps needed by Kiro.
-#         I've removed it and instead used dpkg-deb -f kiro.deb to determine what libs are needed.
 # ----------------------------------------------------------------------
 RUN apt-get update && apt-get install -y \
    ansible-lint \
    bc \
-   ca-certificates \
-   curl \
+   binutils \
    dbus \
    dbus-x11 \
    dnsutils \
    file \
    fonts-noto-color-emoji \
    git \
-   gnupg2 \
+   gopass \
+   gopass-archive-keyring \
+   hexcurse \
+   hexdiff \
    iproute2 \
    iputils-ping \
    jq \
@@ -110,6 +126,7 @@ RUN apt-get update && apt-get install -y \
    sudo \
    traceroute \
    tree \
+   tzdata \
    unzip \
    vim \
    wget \
@@ -117,24 +134,23 @@ RUN apt-get update && apt-get install -y \
    x11-utils \
    xdg-utils \
    zip \
+   >/dev/null \
    && sed -i 's/^# en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
-   && locale-gen en_US.UTF-8 \
+   && locale-gen en_US.UTF-8 >/dev/null \
    && rm -rf /var/lib/apt/lists/*
 ENV LANG=en_US.UTF-8 \
-    LC_ALL=en_US.UTF-8 \
-    LANGUAGE=en_US:en
-
-
-
+     LC_ALL=en_US.UTF-8 \
+     LANGUAGE=en_US:en
 
 # ----------------------------------------------------------------------
 # Optional software installs
 # ----------------------------------------------------------------------
-# fail the build if Kiro can't be installed
+
+# Install Kiro IDE
 RUN if [ "${WITH_KIRO}" = "1" ]; then \
-      echo "Fetching latest Kiro IDE version..." && \
+      printf "\033[0;32mFetching latest Kiro IDE version...\033[0m\n" && \
       KIRO_VERSION=$(curl -s https://prod.download.desktop.kiro.dev/stable/metadata-linux-x64-deb-stable.json | jq -r .currentRelease) && \
-      echo "Latest Kiro IDE version: ${KIRO_VERSION}" && \
+      printf "\033[0;35mLatest Kiro IDE version:\033[0;37m ${KIRO_VERSION}\033[0m\n" && \
       URL_KIRO="https://prod.download.desktop.kiro.dev/releases/stable/linux-x64/signed/${KIRO_VERSION}/deb/kiro-ide-${KIRO_VERSION}-stable-linux-x64.deb" && \
       echo "Downloading from: ${URL_KIRO}" && \
       curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60 -o /tmp/kiro.deb "${URL_KIRO}" && \
@@ -142,75 +158,106 @@ RUN if [ "${WITH_KIRO}" = "1" ]; then \
       which kiro || { echo "❌ Kiro binary not found after install - build failed"; exit 1; } && \
       su -s /bin/sh -c "kiro --version" nobody || { echo "❌ Kiro failed to run - build failed"; exit 1; } && \
       rm /tmp/kiro.deb && \
-      rm -rf /var/lib/apt/lists/*; \
-    else echo "Skipping Kiro installation"; fi    
+      rm -rf /var/lib/apt/lists/* && \
+      printf "\033[0;32mKiro installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "Kiro IDE" > /tmp/build-report/01-kiro; \
+    else \
+      printf "\033[0;33mSkipping Kiro installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Kiro IDE" > /tmp/build-report/01-kiro; \
+    fi    
 
 # Install AWS CLI
 RUN if [ "${WITH_AWS_CLI}" = "1" ]; then \
-      echo "Downloading AWS Cli..." && \
+      printf "\033[0;32mDownloading AWS Cli...\033[0m\n" && \
       cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_AWS_CLI} -o awscliv2.zip && \
       unzip awscliv2.zip >/dev/null  && \
-      echo "Installing AWS Cli..." && \
+      printf "\033[0;32mInstalling AWS Cli...\033[0m\n" && \
       ./aws/install >/dev/null && \
-      curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb; \
-    else echo "Skipping AWS Cli installation"; fi
+      curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_SESSION_MANAGER} -o plugin.deb && dpkg -i plugin.deb && \
+      printf "\033[0;32mAWS Cli installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "AWS CLI" > /tmp/build-report/02-aws; \
+    else \
+      printf "\033[0;33mSkipping AWS Cli installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "AWS CLI" > /tmp/build-report/02-aws; \
+    fi
 
 # Install OpenTofu
 RUN if [ "${WITH_TOFU}" = "1" ]; then \
+      printf "\033[0;32mInstalling OpenTofu...\033[0m\n" && \
       cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_TOFU} -o install.sh && \
-      chmod +x install.sh && ./install.sh --install-method deb && rm install.sh; \
-    else echo "Skipping OpenTofu installation"; fi
-
+      chmod +x install.sh && ./install.sh --install-method deb && rm install.sh && \
+      printf "\033[0;32mOpenTofu installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "OpenTofu" > /tmp/build-report/03-tofu; \
+    else \
+      printf "\033[0;33mSkipping OpenTofu installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "OpenTofu" > /tmp/build-report/03-tofu; \
+    fi
 
 # Install VSCode - latest via apt
 RUN if [ "${WITH_VSCODE}" = "1" ]; then \
+      printf "\033[0;32mInstalling VS Code...\033[0m\n" && \
       cd /tmp && \
       curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg && \
       install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg && \
       rm -f packages.microsoft.gpg && \
       echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list && \
-      apt-get update && apt-get install -y code && \
-      rm -rf /var/lib/apt/lists/*; \
-    else echo "Skipping VS Code installation"; fi
-
+      apt-get update -qq && apt-get install -y -qq code >/dev/null && \
+      rm -rf /var/lib/apt/lists/* && \
+      printf "\033[0;32mVS Code installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "VS Code" > /tmp/build-report/04-vscode; \
+    else \
+      printf "\033[0;33mSkipping VS Code installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "VS Code" > /tmp/build-report/04-vscode; \
+    fi
 
 # Install Cursor
 RUN if [ "${WITH_CURSOR}" = "1" ]; then \
+      printf "\033[0;32mInstalling Cursor...\033[0m\n" && \
       cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_CURSOR} -o install.deb && \
-      apt install -y ./install.deb && rm ./install.deb; \
-    else echo "Skipping Cursor installation"; fi
+      apt install -y -qq ./install.deb >/dev/null && rm ./install.deb && \
+      printf "\033[0;32mCursor installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "Cursor" > /tmp/build-report/05-cursor; \
+    else \
+      printf "\033[0;33mSkipping Cursor installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Cursor" > /tmp/build-report/05-cursor; \
+    fi
 
 # Install Claude system-wide under /usr/local/bin
 RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
+      printf "\033[0;32mInstalling Claude...\033[0m\n" && \
       cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_CLAUDE} -o install.sh && \
       chmod +x install.sh && ./install.sh && \
-      # Find the actual binary and copy to system location \
       CLAUDE_BINARY=$(readlink -f ~/.local/bin/claude) && \
       cp "$CLAUDE_BINARY" /usr/local/bin/claude && \
       chmod +x /usr/local/bin/claude && \
-      # Clean up \
-      rm install.sh && rm -rf ~/.local/bin/claude; \
-    else echo "Skipping Claude installation"; fi
+      rm install.sh && rm -rf ~/.local/bin/claude && \
+      printf "\033[0;32mClaude installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "Claude CLI" > /tmp/build-report/06-claude; \
+    else \
+      printf "\033[0;33mSkipping Claude installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Claude CLI" > /tmp/build-report/06-claude; \
+    fi
 
 # ----------------------------------------------------------------------
-# Homebrew / spacectl
+# Homebrew / spacectl / GitHub CLI
 # ----------------------------------------------------------------------
 # Always define because brew MAY exist depending on flags
-RUN if [ "${WITH_BREW}" = "1" ] || [ "${WITH_SPACECTL}" = "1" ]; then \
-      echo "Creating brew user..." && \
+RUN if [ "${WITH_BREW}" = "1" ] || [ "${WITH_SPACECTL}" = "1" ] || [ "${WITH_GHCLI}" = "1" ]; then \
+      printf "\033[0;32mCreating brew user...\033[0m\n" && \
       groupadd -r brew && \
       useradd -r -g brew -m -s /bin/bash brew && \
       mkdir -p /home/linuxbrew/.linuxbrew && \
       chown -R brew:brew /home/linuxbrew && \
       \
-      echo "Installing Homebrew..." && \
+      printf "\033[0;32mInstalling Homebrew...\033[0m\n" && \
       su - brew -c 'NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"' && \
-      \
       test -x /home/linuxbrew/.linuxbrew/bin/brew || { echo "❌ brew not found after install"; exit 1; } && \
-      \
-      su - brew -c '/home/linuxbrew/.linuxbrew/bin/brew --version'; \
+      su - brew -c '/home/linuxbrew/.linuxbrew/bin/brew --version' && \
+      printf "\033[0;32mHomebrew installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "Homebrew" > /tmp/build-report/07-brew; \
     else \
-      echo "Skipping Homebrew installation"; \
+      printf "\033[0;33mSkipping Homebrew installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Homebrew" > /tmp/build-report/07-brew; \
     fi
 
 # Install spacectl via Homebrew
@@ -219,15 +266,31 @@ RUN if [ "${WITH_SPACECTL}" = "1" ]; then \
       su - brew -c 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
         brew tap spacelift-io/spacelift && \
         brew install spacelift-io/spacelift/spacectl && \
-        spacectl version'; \
+        spacectl version' && \
+      printf "\033[0;32mspacectl installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "spacectl" > /tmp/build-report/08-spacectl; \
     else \
-      echo "Skipping spacectl installation"; \
+      printf "\033[0;33mSkipping spacectl installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "spacectl" > /tmp/build-report/08-spacectl; \
+    fi
+
+# Install github cli via brew
+RUN if [ "${WITH_GHCLI}" = "1" ]; then \
+      grep -qxF 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' /etc/bash.bashrc || \
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /etc/bash.bashrc && \
+      su - brew -c 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)" && \
+        brew install gh && \
+        gh --version' && \
+      printf "\033[0;32mGitHub CLI installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "GitHub CLI" > /tmp/build-report/09-ghcli; \
+    else \
+      printf "\033[0;33mSkipping GitHub CLI installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "GitHub CLI" > /tmp/build-report/09-ghcli; \
     fi
 
 # ----------------------------------------------------------------------
-# Fonts
+# Powerline Fonts
 # ----------------------------------------------------------------------
-# Install Powerline fonts system-wide
 RUN cd /tmp && \
     git clone https://github.com/powerline/fonts.git --depth=1 && \
     cd fonts && \
@@ -238,13 +301,13 @@ RUN cd /tmp && \
     cd /tmp && rm -rf fonts
 
 # ----------------------------------------------------------------------
-# Chromium
+# Chromium Installation & Flag Patching
 # ----------------------------------------------------------------------
-RUN apt-get update && \
-    apt-get install -y software-properties-common wget gnupg2 && \
-    add-apt-repository -y ppa:xtradeb/apps && \
-    apt-get update && \
-    apt-get install -y chromium
+RUN apt-get update -qq && \
+    apt-get install -y -qq software-properties-common wget >/dev/null && \
+    add-apt-repository -y ppa:xtradeb/apps >/dev/null && \
+    apt-get update -qq && \
+    apt-get install -y -qq chromium >/dev/null
 
 RUN if [ -f /bin/chromium ]; then \
       cp /bin/chromium /usr/bin/chromium.bak && \
@@ -254,24 +317,24 @@ RUN if [ -f /bin/chromium ]; then \
 # ----------------------------------------------------------------------
 # Install 1Password op CLI (latest)
 # ----------------------------------------------------------------------
-# Install 1Password CLI via APT (per 1Password’s official get‑started guide)
 RUN set -eux \
-    # Import 1Password public key
     && curl -sS https://downloads.1password.com/linux/keys/1password.asc | \
         gpg --dearmor --batch --yes \
             --output /usr/share/keyrings/1password-archive-keyring.gpg \
-    \
-    # Add 1Password APT repo (for amd64)
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/1password-archive-keyring.gpg] https://downloads.1password.com/linux/debian/amd64 stable main" \
         > /etc/apt/sources.list.d/1password.list \
-    \
-    # Install 1Password CLI package
-    && apt-get update \
-    && apt-get install -y 1password-cli \
-    \
-    # Verify it’s there
+    && apt-get update -qq \
+    && apt-get install -y -qq 1password-cli >/dev/null \
     && op --version
 
+
+# ----------------------------------------------------------------------
+# Install z-tb (me) epass utility from GitHub
+# ----------------------------------------------------------------------
+RUN printf "\033[0;32mInstalling epass utility from GitHub...\033[0m\n" \
+   && curl -fsSL "https://raw.githubusercontent.com/z-tb/linuxadmin/main/cli/epass" -o /usr/local/bin/epass \
+   && chmod +x /usr/local/bin/epass \
+   && printf "\033[0;32mepass utility installed OK\033[0m\n"
 
 
 # ----------------------------------------------------------------------
@@ -280,20 +343,28 @@ RUN set -eux \
 RUN cat /tmp/bashrc-addition >> /etc/bash.bashrc && rm /tmp/bashrc-addition
 
 # ----------------------------------------------------------------------
-# Copy entrypoint script for provisioning and runtime user setup
+# Entrypoint Configuration
 # ----------------------------------------------------------------------
 COPY ./usr/local/bin/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-
 # ----------------------------------------------------------------------
-# Add some capability to the container
-# Avoids needing NET_RAW granted to the whole container at runtime.
+# Networking Capabilities for Non-Root Runtime Diagnostics
 # ----------------------------------------------------------------------
 RUN setcap cap_net_raw+ep $(readlink -f $(which ping))        && \
     setcap cap_net_raw+ep $(readlink -f $(which traceroute))
 
 # ----------------------------------------------------------------------
-# Default ENTRYPOINT (runs bash shell)
+# Print Build Summary Report
+# ----------------------------------------------------------------------
+RUN printf "\n\033[1;36m=========================================\033[0m\n" && \
+    printf "\033[1;36m       DOCKER IMAGE BUILD REPORT         \033[0m\n" && \
+    printf "\033[1;36m=========================================\033[0m\n" && \
+    cat /tmp/build-report/* && \
+    printf "\033[1;36m=========================================\033[0m\n\n" && \
+    rm -rf /tmp/build-report
+
+# ----------------------------------------------------------------------
+# Default ENTRYPOINT
 # ----------------------------------------------------------------------
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

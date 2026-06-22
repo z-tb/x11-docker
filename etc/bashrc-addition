@@ -122,6 +122,11 @@ function pcol() {
 export EDITOR=vim
 
 #------------------------------------------------------------------
+# gopass needs a GPG pinentry defined for the terminal/curses
+#------------------------------------------------------------------
+export GPG_TTY=$(tty)
+
+#------------------------------------------------------------------
 # if brew is installed, add this to the user environment
 #------------------------------------------------------------------
 test -f /home/linuxbrew/.linuxbrew/bin/brew && eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"

@@ -58,6 +58,7 @@ Lastly, there are many ways to butcher docker security in the interest of increa
   * `~/.ssh` → `/mnt/$USER_HOME/.ssh` (intended to be mounted **read‑only** `:ro` for safety)
 * The `/apps` directory inside the container is mounted from the host (host `$HOME/apps` → container `/apps`) and is expected to be **read‑write** `:rw` so you can edit/build projects there.
 * Persistence and access semantics depend entirely on how you mount the host directories when running the container — some mounts in the examples are intended to be `:ro` and others `:rw`. Verify and adjust your run target flags to match your security and workflow needs.
+* The Makefile includes a series of variables prefixed with "WITH_". These are intended to enable/disable (1/0) the feature they reference.  If you want to maintain a persistent configuration for these, you can initialize .make in the current directory to declare what you want enabled or disabled. This allows future pulls not to conflict with changes made directly to the Makefile.  You can double check your config with `make info`
 
 **Important:** The host-side `$HOST_PATH` ($HOME/apps) directory declared in the Makefile **must exist** before running `make runm`, `make runx`, `make runx2` or `make xrunx` — Docker will create an empty directory when binding a host path that does not exist, but failing to intentionally create/prepare it may lead to surprises.
 
