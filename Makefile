@@ -46,7 +46,7 @@ CON_USER         ?= xdocker
 # This allows for isolation of runtime user's "real" home directory in container.
 # Maintains persistence, only active in container so any docker content is meshed with runtime user content.
 # ----------------------------------------------------------------------
-SRC_HOME		 := ./dockerhome
+SRC_HOME         ?= ./dockerhome
 
 # ----------------------------------------------------------------------
 # Docker group for socket forwarding - if using Docker inside container
