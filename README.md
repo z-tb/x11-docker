@@ -1,6 +1,6 @@
 # Dockerized X11 Environment for LLM/plugin isolation
 
-This project provides a Dockerized development environment capable of running X11 graphical applications from within the container. This allows for some sort of a security boundary around the appliation and data it has access to. I primarly use this as a DevOps environment so much of the tooling to support that work is included. Various LLM environments like Amazon Kiro IDE can be pulled in during build time. VS Code is pulled in which gives some isolation around their problematic plugin ecosystem.
+This project provides a Dockerized development environment capable of running X11 graphical applications from within the container. This allows for some sort of a security boundary around the appliation and data it has access to. I primarly use this as a DevOps environment so much of the tooling to support that work is included. Various LLM environments like Amazon Kiro IDE can be pulled in during build time. VS Code is pulled in which gives some isolation around their problematic plugin ecosystem. Much of this project was developed using LLM tooling.
 
 The environment supports:
 * Host or virtual X11 forwarding
@@ -140,6 +140,4 @@ make clean
 | `info`      | Show Makefile target info |
 
 ---
-
-If you'd like, I can also add a short "Quick Start" at the top showing the minimal sequence of commands for a new user (build → runm → open Cinnamon), or generate a small diagram that visualizes which mounts are `:ro` vs `:rw` and how the symlinks resolve to `/mnt/$USER_HOME`. Which would you prefer?
 
