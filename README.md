@@ -36,6 +36,8 @@ Kiro must be started with `kiro --no-sandbox` for the same reasons above. Simply
 
 Symlinks are connected in the container from `/mnt/home/$USER` to `$HOME` which Kiro needs to maintain persistence. This way plugins and things for Kiro won't have to be installed every time you start the container. Some other directories (`.config/pulse`) are volume-mounted R/W on the R/O volume mount for `/mnt/home/$USER`. This allows for some pieces of $HOME on the host to be written to, but the majority of $HOME on the host remains read-only, or mostly ephemeral. Those symlinks are created from `/etc/bash.bashrc` so see the Dockerfile if you want to edit the source file to disable them.
 
+I should mention the `vcode` directory contains a shell script you can drop into your path that will give you some single-instance usability of the containerized install of VS Code. It's not exactly perfect but will work for simple edits.  It does gymnastics with the runtime arguments and volume mounts to provide some amount of sanity and persistence, if needed. There is room to build this out.  I use it for one-shot edits one a directory of files or single files when primarly working at the command line.  
+
 Lastly, there are many ways to butcher docker security in the interest of increasing usability. Custom [Seccomp profiles](https://docs.docker.com/engine/security/seccomp/) seem like the most [favorable and granular](https://stackoverflow.com/questions/76833201/how-to-run-chrome-securely-in-docker) method so there are indeed other ways to cross this bridge.
 
 ---
