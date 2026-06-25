@@ -1,17 +1,16 @@
-# Dockerized X11 Environment with PulseAudio, GPU, and Kiro IDE Support
+# Dockerized X11 Environment for LLM/plugin isolation
 
-This project provides a Dockerized development environment capable of running X11 graphical applications, desktop environments (Cinnamon or LXDE), and optionally the Amazon Kiro IDE. The environment supports running applications inside a Docker container with:
+This project provides a Dockerized development environment capable of running X11 graphical applications from within the container. This allows for some sort of a security boundary around the appliation and data it has access to. I primarly use this as a DevOps environment so much of the tooling to support that work is included. Various LLM environments like Amazon Kiro IDE can be pulled in during build time. VS Code is pulled in which gives some isolation around their problematic plugin ecosystem.
 
-* Host or virtual X11 forwarding (Xephyr or host display - this depends on branch)
-* PulseAudio/ALSA audio support
+The environment supports:
+* Host or virtual X11 forwarding
 * GPU passthrough (if available, Kiro branch only)
 * Volume mounting for persistence
-* Optional Kiro IDE installation (Kiro branch)
-
+* Optional IDE/LLM tooling (Kiro, Claude, Cursor, VS Code, etc)
 
 This started as a project using [Xephyr](https://www.x.org/archive/X11R7.5/doc/man/man1/Xephyr.1.html#toc7) for a dedicated X display which is faster than VNC, but difficult to use cut-and-paste with. Using `ssh -X` to display remote X apps is fine too, but there can be some limitations and latency with the compression and ciphers. The X11 pass-through was the next idea so I've split this into two branches. It's really designed for those who need a consistent X11 environment (or one managed by a security team) for testing, development, or experimentation.  I am not sure this will work with Windows or Mac. It's more likely with Xephyr, less likely with X11 sockets.
 
-This isn't limited to Kiro. It would likely work for other IDE applications (VSCode, Cursor, Claude) as well. Sound support is available from the container also but I added it as a curiosity rather than out of need.
+Sound support was originally available from the container also but it was added as a curiosity rather than out of need and haven't maintained it.
 
 ---
 
@@ -45,11 +44,10 @@ Lastly, there are many ways to butcher docker security in the interest of increa
 
 * Non-root user created in the container, matching host UID/GID to avoid permission issues.
 * Passwordless sudo for the non-root user (adjustable if you prefer).
-* Cinnamon and LXDE desktops installed because I couldn't make up my mind.
-* Optional installation of Amazon Kiro IDE (`WITH_KIRO=1`).
-* Forward X11 display and PulseAudio for graphical and audio applications.
+* Optional installation of various add-ons eg: Amazon Kiro IDE (`WITH_KIRO=1`).
+* Forward X11 display to host
 * GPU passthrough support via Docker `--gpus all`.
-* Volume mounts for `/apps`, home directories, and Kiro configuration.
+* Volume mounts for `/apps`, home directories, and other persistent configuration.
 
 **Home directory mounts and symlinks (persistence):**
 * The build process creates a user inside the container with the same UID/GID as the builder.
@@ -66,10 +64,8 @@ Lastly, there are many ways to butcher docker security in the interest of increa
 
 ## Prerequisites
 
-* Docker 24+ installed on the host
-* Xephyr installed on the host (for Xephyr branch/`xrunx` target) 
-* PulseAudio running on the host (for audio forwarding)
-* Optional NVIDIA GPU with `nvidia-container-toolkit` installed for GPU passthrough (Kiro branch)
+* Docker installed on the host
+* Optional NVIDIA GPU with `nvidia-container-toolkit` installed for GPU passthrough
 
 ---
 
@@ -100,56 +96,6 @@ make run
 ```
 
 Starts a container named `x11-test` with a bash shell.
-
-### 2. Volume-mounted shell
-
-```bash
-make runm
-```
-
-Mounts the host `./apps` folder to `/apps` inside the container for persistent work and starts a bash shell. Ensure `./apps` exists on the host before running.
-
----
-
-## Running with X11
-
-### Host X11 display
-
-```bash
-make runx
-```
-
-* Forwards the host `DISPLAY` into the container.
-* Forwards PulseAudio/ALSA for audio (example mounts shown in Makefile).
-* Runs the container as your host UID/GID to reduce permission friction.
-
-### Host X11 + GPU + Kiro IDE
-
-```bash
-make runx2
-```
-
-* Forwards X11 and PulseAudio/ALSA
-* Enables GPU passthrough (`--gpus all`)
-* Mounts the home directory and Kiro config for persistence
-* Installs Kiro IDE when `WITH_KIRO=1` is set in the Makefile
-
----
-
-## Running in a Xephyr virtual X11 server
-
-```bash
-make xrunx
-```
-
-* Starts a Xephyr virtual display (`:1`) with resolution 1280x720
-* Forwards X11 and PulseAudio to the container
-* Useful to isolate the container desktop from the host desktop environment
-* Adjust resolution after startup with:
-
-```bash
-xrandr --output default --mode 1280x720
-```
 
 ---
 
@@ -187,12 +133,11 @@ make clean
 | `build`     | Build Docker image with default args |
 | `rebuild`   | Build Docker image without cache |
 | `run`       | Run container interactively |
-| `runm`      | Run container with `/apps` volume mount (host `./apps` → container `/apps`) |
-| `runx`      | Run container with host X11 and PulseAudio |
-| `runx2`     | Run container with X11, PulseAudio, GPU, and optional Kiro |
-| `xrunx`     | Run container inside Xephyr virtual X11 server |
-| `stop`      | Stop running container |
+| `stop`      | Stop container |
 | `clean`     | Remove container and image |
+| `connect`   | Start interactive shell on running container |
+| `push`      | Push container to Dockerhub |
+| `info`      | Show Makefile target info |
 
 ---
 
