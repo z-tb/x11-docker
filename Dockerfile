@@ -332,7 +332,7 @@ RUN set -eux \
 # Install z-tb (me) epass utility from GitHub
 # ----------------------------------------------------------------------
 RUN printf "\033[0;32mInstalling epass utility from GitHub...\033[0m\n" \
-   && curl -fsSL "https://raw.githubusercontent.com/z-tb/linuxadmin/main/cli/epass" -o /usr/local/bin/epass \
+   && curl -fsSL "https://raw.githubusercontent.com/z-tb/linuxadmin/refs/heads/main/epass/epass" -o /usr/local/bin/epass \
    && chmod +x /usr/local/bin/epass \
    && printf "\033[0;32mepass utility installed OK\033[0m\n"
 
