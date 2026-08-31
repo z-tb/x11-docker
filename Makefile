@@ -155,9 +155,6 @@ connect:
 	docker exec -it $(CONTAINER_NAME) /bin/bash
 
 
-# ----------------------------------------------------------------------
-# run container with all the settings
-# ----------------------------------------------------------------------
 run: info
 	@# Check if the base directory exists and print the requested colored messages
 	@if [ ! -d "$(SRC_HOME)" ]; then \
@@ -165,13 +162,13 @@ run: info
 	else \
 		echo "\033[1;32mDirectory $(SRC_HOME) already exists\033[0m"; \
 	fi
-	
+
 	@mkdir -p "$(SRC_HOME)/.kiro" "$(SRC_HOME)/bash" "$(SRC_HOME)/.config/Kiro" "$(SRC_HOME)/.ssh" ./scratch
 
 	@# Detect SSH Agent on the host and construct flags natively in Make variables
 	$(eval SSH_FORWARD_FLAGS := $(if $(SSH_AUTH_SOCK),--env SSH_AUTH_SOCK=$(SSH_AUTH_SOCK) --volume $(SSH_AUTH_SOCK):$(SSH_AUTH_SOCK),))
 	$(if $(SSH_AUTH_SOCK),,@echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent.")
-	
+
 	docker run -it --rm --shm-size=1g \
 		--ipc=host \
 		--name "$(CONTAINER_NAME)" \
@@ -199,6 +196,47 @@ run: info
 		--volume /dev/dri:/dev/dri \
 		"$(IMAGE_NAME)"
 
+rundock:
+	@# Check if the base directory exists and print the requested colored messages
+	@if [ ! -d "$(SRC_HOME)" ]; then \
+		echo "\033[1;33mCreating directory $(SRC_HOME)\033[0m"; \
+	else \
+		echo "\033[1;32mDirectory $(SRC_HOME) already exists\033[0m"; \
+	fi
+
+	@mkdir -p "$(SRC_HOME)/.kiro" "$(SRC_HOME)/bash" "$(SRC_HOME)/.config/Kiro" "$(SRC_HOME)/.ssh" ./scratch
+
+	@# Detect SSH Agent on the host and construct flags natively in Make variables
+	$(eval SSH_FORWARD_FLAGS := $(if $(SSH_AUTH_SOCK),--env SSH_AUTH_SOCK=$(SSH_AUTH_SOCK) --volume $(SSH_AUTH_SOCK):$(SSH_AUTH_SOCK),))
+	$(if $(SSH_AUTH_SOCK),,@echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent.")
+
+	docker run -it --rm --shm-size=1g \
+		--ipc=host \
+		--name "$(CONTAINER_NAME)" \
+		--hostname "$(IMAGE_NAME)" \
+		--env DISPLAY="$(DISPLAY)" \
+		--env USER_UID="$(USER_UID)" \
+		--env USER_GROUP_GID="$(USER_GROUP_GID)" \
+		--env USER_GROUP_NAME="$(USER_GROUP_NAME)" \
+		--env USER_NAME="$(CON_USER)" \
+		--env USER_SHELL="$(USER_SHELL)" \
+		--env USER_HOME="/home/$(CON_USER)" \
+		--env USER_GROUPS="$(SUPP_GROUPS)" \
+		$(SSH_FORWARD_FLAGS) \
+		--volume "./scratch:/scratch:rw" \
+		--volume "$(SRC_HOME)/.kiro:/home/$(CON_USER)/.kiro:rw" \
+		--volume "$(SRC_HOME)/bash:/home/$(CON_USER)/bash:rw" \
+		--volume "$(HOME)/.gitconfig:/home/$(CON_USER)/.gitconfig:rw" \
+		--volume "$(SRC_HOME)/.config/Kiro:/home/$(CON_USER)/.config/Kiro:rw" \
+		--volume "$(SRC_HOME)/.ssh/:/home/$(CON_USER)/.ssh:rw" \
+		--volume /tmp/.X11-unix:/tmp/.X11-unix:rw \
+		--volume "$(HOST_PATH):/apps:rw" \
+		--volume /etc/localtime:/etc/localtime:ro \
+		--volume /etc/timezone:/etc/timezone:ro \
+		--volume /var/run/docker.sock:/var/run/docker.sock \
+		--gpus all \
+		--volume /dev/dri:/dev/dri \
+		"$(IMAGE_NAME)"
 
 # ----------------------------------------------------------------------
 # Login, tag, and push image to Docker Hub
