@@ -348,6 +348,14 @@ RUN printf "\033[0;32mInstalling epass utility from GitHub...\033[0m\n" \
 RUN cat /tmp/bashrc-addition >> /etc/bash.bashrc && rm /tmp/bashrc-addition
 
 # ----------------------------------------------------------------------
+# Chromium dark mode
+# ----------------------------------------------------------------------
+RUN mkdir -p /etc/chromium.d \
+    && printf '%s\n' \
+       'export CHROMIUM_FLAGS="$CHROMIUM_FLAGS --force-dark-mode"' \
+       > /etc/chromium.d/90-dark-mode
+
+# ----------------------------------------------------------------------
 # Entrypoint Configuration
 # ----------------------------------------------------------------------
 COPY ./usr/local/bin/entrypoint.sh /usr/local/bin/entrypoint.sh

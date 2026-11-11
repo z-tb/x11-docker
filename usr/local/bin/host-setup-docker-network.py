@@ -18,7 +18,7 @@ What it does:
 3. If the network already exists, it asks (in red) whether to clear the
    existing rules and apply them again.
 
-The rules live in two dedicated iptables chains, so clearing them never
+The rules (Network Isolation) live in two dedicated iptables chains, so clearing them never
 touches any other rules on the host:
 
     DOCKER-USER -> NI-<name>-F   traffic forwarded out of the container
