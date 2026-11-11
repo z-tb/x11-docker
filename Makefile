@@ -65,7 +65,6 @@ DOCKER_NETWORK   := kironet
 WITH_KIRO        ?= 1
 WITH_AWS_CLI     ?= 1
 WITH_TOFU        ?= 1
-WITH_CURSOR      ?= 0
 WITH_VSCODE      ?= 1
 WITH_CLAUDE      ?= 0
 WITH_BREW        ?= 0
@@ -119,7 +118,6 @@ build: info
 		--build-arg WITH_AWS_CLI=$(WITH_AWS_CLI) \
 		--build-arg WITH_TOFU=$(WITH_TOFU) \
 		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
-		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
 		--build-arg WITH_CLAUDE=$(WITH_CLAUDE) \
 		--build-arg WITH_BREW=$(WITH_BREW) \
 		--build-arg WITH_SPACECTL=$(WITH_SPACECTL) \
@@ -145,7 +143,6 @@ rebuild: info
 		--build-arg WITH_AWS_CLI=$(WITH_AWS_CLI) \
 		--build-arg WITH_TOFU=$(WITH_TOFU) \
 		--build-arg WITH_VSCODE=$(WITH_VSCODE) \
-		--build-arg WITH_CURSOR=$(WITH_CURSOR) \
 		--build-arg WITH_CLAUDE=$(WITH_CLAUDE) \
 		--build-arg WITH_BREW=$(WITH_BREW) \
 		--build-arg WITH_SPACECTL=$(WITH_SPACECTL) \
@@ -305,7 +302,6 @@ info:
 	@echo "WITH_KIRO=$(WITH_KIRO)"
 	@echo "WITH_AWS_CLI=$(WITH_AWS_CLI)"
 	@echo "WITH_TOFU=$(WITH_TOFU)"
-	@echo "WITH_CURSOR=$(WITH_CURSOR)"
 	@echo "WITH_VSCODE=$(WITH_VSCODE)"
 	@echo "WITH_CLAUDE=$(WITH_CLAUDE)"
 	@echo "WITH_BREW=$(WITH_BREW)"

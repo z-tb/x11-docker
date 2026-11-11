@@ -32,31 +32,40 @@ import os
 import subprocess
 import sys
 
-DEFAULT_DAEMON_JSON = "/etc/docker/daemon.json"
+# ----------------------------------------------------------------------
+# Constants
+# ----------------------------------------------------------------------
 
+DEFAULT_DAEMON_JSON = "/etc/docker/daemon.json"
 RFC1918_NETWORKS = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
 
+# ANSI Color Escape Codes for Terminal Output Formatting
 RED = "\033[1;31m"
 YELLOW = "\033[1;33m"
 GREEN = "\033[1;32m"
+CYAN  = "\033[1;36m"
 RESET = "\033[0m"
 
-
 # ----------------------------------------------------------------------
-# Small helpers
+# Print formatted message to terminal with optional ANSI color
 # ----------------------------------------------------------------------
-
 def say(message, color=""):
     """Print a message, optionally in color."""
     print(f"{color}{message}{RESET}" if color else message)
 
 
+# ----------------------------------------------------------------------
+# Print error message in red and terminate execution immediately
+# ----------------------------------------------------------------------
 def fail(message):
     """Print an error and stop the program."""
     say(f"error: {message}", RED)
     sys.exit(1)
 
 
+# ----------------------------------------------------------------------
+# Run external shell command via subprocess with output capture
+# ----------------------------------------------------------------------
 def run(command, check=True):
     """Run a command and return the finished process.
 
@@ -65,6 +74,9 @@ def run(command, check=True):
     return subprocess.run(command, capture_output=True, text=True, check=check)
 
 
+# ----------------------------------------------------------------------
+# Prompt user for yes/no confirmation with input validation
+# ----------------------------------------------------------------------
 def ask_yes_no(question, color=""):
     """Ask a y/n question until the user gives a valid answer."""
     while True:
@@ -79,20 +91,25 @@ def ask_yes_no(question, color=""):
 
 
 # ----------------------------------------------------------------------
-# Docker network
+# Check if a named Docker network already exists on the host
 # ----------------------------------------------------------------------
-
 def network_exists(name):
     """Return True if a docker network with this name exists."""
     return run(["docker", "network", "inspect", name], check=False).returncode == 0
 
 
+# ----------------------------------------------------------------------
+# Run 'docker network inspect' and return parsed JSON metadata
+# ----------------------------------------------------------------------
 def inspect_networks(ids_or_names):
     """Return the parsed 'docker network inspect' output for the given networks."""
     result = run(["docker", "network", "inspect", *ids_or_names])
     return json.loads(result.stdout)
 
 
+# ----------------------------------------------------------------------
+# Extract IPv4 subnets from inspected Docker network IPAM config
+# ----------------------------------------------------------------------
 def get_subnets(network):
     """Return the subnets of one inspected docker network as ip_network objects."""
     subnets = []
@@ -103,6 +120,9 @@ def get_subnets(network):
     return subnets
 
 
+# ----------------------------------------------------------------------
+# Resolve Linux bridge interface name for a given Docker network
+# ----------------------------------------------------------------------
 def get_bridge_name(network):
     """Return the linux bridge interface name used by a docker network."""
     options = network.get("Options") or {}
@@ -113,6 +133,9 @@ def get_bridge_name(network):
     return "br-" + network["Id"][:12]
 
 
+# ----------------------------------------------------------------------
+# Provision a new Docker bridge network with specified subnet and name
+# ----------------------------------------------------------------------
 def create_network(name, subnet):
     """Create the docker network with a fixed subnet and bridge name."""
     bridge = ("br-" + name)[:15]  # linux interface names max out at 15 chars
@@ -127,9 +150,8 @@ def create_network(name, subnet):
 
 
 # ----------------------------------------------------------------------
-# Choosing a subnet from daemon.json
+# Read and parse default-address-pools settings from daemon.json
 # ----------------------------------------------------------------------
-
 def load_address_pools(daemon_json_path):
     """Read default-address-pools from daemon.json.
 
@@ -154,6 +176,9 @@ def load_address_pools(daemon_json_path):
     return pools
 
 
+# ----------------------------------------------------------------------
+# Collect all IPv4 subnets currently assigned to Docker networks or host routes
+# ----------------------------------------------------------------------
 def get_used_subnets():
     """Return every IPv4 subnet already used by docker networks or host routes."""
     used = []
@@ -176,6 +201,9 @@ def get_used_subnets():
     return used
 
 
+# ----------------------------------------------------------------------
+# Test if a candidate subnet overlaps with any allocated subnet
+# ----------------------------------------------------------------------
 def overlaps_any(candidate, used_subnets):
     """Return True if the candidate overlaps any subnet in the list."""
     for used in used_subnets:
@@ -184,6 +212,9 @@ def overlaps_any(candidate, used_subnets):
     return False
 
 
+# ----------------------------------------------------------------------
+# Search configured address pools for the first unallocated subnet block
+# ----------------------------------------------------------------------
 def suggest_subnet(pools, used_subnets):
     """Return the first free subnet from the pools, or None if there is none."""
     for base, size in pools:
@@ -195,6 +226,9 @@ def suggest_subnet(pools, used_subnets):
     return None
 
 
+# ----------------------------------------------------------------------
+# Prompt user to manually specify a valid IPv4 CIDR range
+# ----------------------------------------------------------------------
 def ask_for_cidr(network_name):
     """Ask the user to type a subnet. Returns None if they leave it empty."""
     while True:
@@ -212,6 +246,9 @@ def ask_for_cidr(network_name):
         say("only IPv4 networks are supported", YELLOW)
 
 
+# ----------------------------------------------------------------------
+# Determine network subnet (auto-suggested from pools or manual entry)
+# ----------------------------------------------------------------------
 def choose_subnet(network_name, daemon_json_path):
     """Pick the subnet for a new network, with the user's confirmation.
 
@@ -234,6 +271,9 @@ def choose_subnet(network_name, daemon_json_path):
     return None
 
 
+# ----------------------------------------------------------------------
+# Alert user if an existing network's IP space falls outside configured pools
+# ----------------------------------------------------------------------
 def warn_if_outside_pools(network, daemon_json_path):
     """Warn when an existing network's subnet is not inside the configured pools."""
     pools = load_address_pools(daemon_json_path)
@@ -248,36 +288,50 @@ def warn_if_outside_pools(network, daemon_json_path):
 
 
 # ----------------------------------------------------------------------
-# Firewall rules
+# Execute iptables command with lock wait (-w) flag enabled
 # ----------------------------------------------------------------------
-
 def iptables(*args, check=True):
     """Run iptables, waiting for the xtables lock if another tool holds it."""
     return run(["iptables", "-w", *args], check=check)
 
 
+# ----------------------------------------------------------------------
+# Generate standardized iptables chain names for network isolation
+# ----------------------------------------------------------------------
 def chain_names(network_name):
     """Return the (forward_chain, input_chain) names for this network."""
     safe = "".join(c if c.isalnum() else "_" for c in network_name)[:20]
     return f"NI-{safe}-F", f"NI-{safe}-I"
 
 
+# ----------------------------------------------------------------------
+# Test whether a custom iptables chain currently exists
+# ----------------------------------------------------------------------
 def chain_exists(chain):
     return iptables("-L", chain, "-n", check=False).returncode == 0
 
 
+# ----------------------------------------------------------------------
+# Check if a jump rule from a parent chain to target chain exists
+# ----------------------------------------------------------------------
 def jump_exists(parent_chain, bridge, target_chain):
     """Return True if parent_chain already jumps to target_chain for this bridge."""
     result = iptables("-C", parent_chain, "-i", bridge, "-j", target_chain, check=False)
     return result.returncode == 0
 
 
+# ----------------------------------------------------------------------
+# Verify that all required isolation jump rules are active
+# ----------------------------------------------------------------------
 def rules_present(network_name, bridge):
     forward_chain, input_chain = chain_names(network_name)
     return (jump_exists("DOCKER-USER", bridge, forward_chain)
             and jump_exists("INPUT", bridge, input_chain))
 
 
+# ----------------------------------------------------------------------
+# Delete parent jump rules, flush, and destroy an iptables chain
+# ----------------------------------------------------------------------
 def remove_chain(parent_chain, target_chain, bridge):
     """Remove the jump into target_chain, then empty and delete the chain."""
     while jump_exists(parent_chain, bridge, target_chain):
@@ -287,13 +341,18 @@ def remove_chain(parent_chain, target_chain, bridge):
         iptables("-X", target_chain)
 
 
+# ----------------------------------------------------------------------
+# Remove all custom network isolation firewall chains and rules
+# ----------------------------------------------------------------------
 def clear_rules(network_name, bridge):
     say(f"Clearing existing firewall rules for '{network_name}' ({bridge})")
     forward_chain, input_chain = chain_names(network_name)
     remove_chain("DOCKER-USER", forward_chain, bridge)
     remove_chain("INPUT", input_chain, bridge)
 
-
+# ----------------------------------------------------------------------
+# Build and insert iptables isolation rules for container traffic
+# ----------------------------------------------------------------------
 def apply_rules(network_name, bridge, allowed_cidrs):
     """Block RFC1918 and the host for traffic coming from the bridge."""
     if not chain_exists("DOCKER-USER"):
@@ -326,9 +385,8 @@ def apply_rules(network_name, bridge, allowed_cidrs):
 
 
 # ----------------------------------------------------------------------
-# Main program
+# Parse and validate command-line arguments
 # ----------------------------------------------------------------------
-
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Create an isolated docker network and firewall it from RFC1918.")
@@ -348,6 +406,9 @@ def parse_arguments():
     return args
 
 
+# ----------------------------------------------------------------------
+# Execute end-to-end setup for a newly created Docker network
+# ----------------------------------------------------------------------
 def setup_new_network(args):
     """The network does not exist: pick a subnet, create it, apply the rules."""
     subnet = choose_subnet(args.network, args.daemon_json)
@@ -363,27 +424,25 @@ def setup_new_network(args):
     say(f"Network '{args.network}' created and isolated from RFC1918", GREEN)
 
 
+
+# ----------------------------------------------------------------------
+# Automatically refresh firewall rules for existing networks
+# ----------------------------------------------------------------------
 def refresh_existing_network(args):
-    """The network exists: offer to clear and re-apply its rules."""
+    """The network exists: automatically clear and re-apply firewall rules."""
     network = inspect_networks([args.network])[0]
     bridge = get_bridge_name(network)
     warn_if_outside_pools(network, args.daemon_json)
 
-    question = (f"Network '{args.network}' already exists. "
-                "Clear existing firewall rules and re-apply them?")
-    if ask_yes_no(question, RED):
-        clear_rules(args.network, bridge)
-        apply_rules(args.network, bridge, args.allow)
-        say(f"Rules re-applied for '{args.network}'", GREEN)
-    elif rules_present(args.network, bridge):
-        say(f"Keeping existing rules for '{args.network}'")
-    else:
-        # The user said no, but without the rules the network is not isolated.
-        say(f"Rules for '{args.network}' are missing, applying them", YELLOW)
-        clear_rules(args.network, bridge)
-        apply_rules(args.network, bridge, args.allow)
-
-
+    # Clear and re-apply rules
+    clear_rules(args.network, bridge)
+    apply_rules(args.network, bridge, args.allow)
+    
+    # Print status using args.network in the proper scope
+    say(f"Rules re-applied for '{args.network}'", CYAN)
+# ----------------------------------------------------------------------
+# Script execution entrypoint and top-level error handling
+# ----------------------------------------------------------------------
 def main():
     args = parse_arguments()
 

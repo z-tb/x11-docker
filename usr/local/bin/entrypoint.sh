@@ -327,9 +327,41 @@ else
     success "[SSH] SSH agent detected via SSH_AUTH_SOCK=$SSH_AUTH_SOCK"
 fi
 
+
+# -----------------------------
+# Verify Firewall / RFC1918 Isolation
+# -----------------------------
+info "Verifying network isolation rules..."
+
+TEST_TARGETS=("10.255.255.1" "172.16.0.1" "192.168.1.1")
+ISOLATION_FAILED=0
+
+for target in "${TEST_TARGETS[@]}"; do
+    # Capturing stderr/stdout into a variable with '|| true' keeps 'set -e' happy
+    ping_out=$(ping -c 1 -w 1 "$target" 2>&1 || true)
+
+    # Validate ICMP rejection output
+    if ! echo "$ping_out" | grep -qi "Prohibited\|Unreachable"; then
+        echo -e "\033[1;31m[ERROR] Network isolation failed: Target $target did not respond with expected message!\033[0m"
+        ISOLATION_FAILED=1
+    fi
+done
+
+if [ "$ISOLATION_FAILED" -eq 1 ]; then
+    echo -e "\033[1;31m[FATAL] Stopping entrypoint due to invalid or missing firewall isolation.\033[0m"
+    exit 1
+fi
+
+formatted_targets=$(IFS=', '; echo "${TEST_TARGETS[*]}")
+success "[FIREWALL] Network isolation verified. RFC1918 subnets blocked (${formatted_targets})."
+
+
 # -----------------------------
 # Completion
 # -----------------------------
+
+# disable sudo hint mesage
+touch "$USER_HOME/.sudo_as_admin_successful"
 
 # drop privs to runtime user and start shell
 success "Runtime user provisioning complete. Starting shell for \033[1;34m${USER_NAME}\033[0m..."
@@ -337,5 +369,5 @@ success "Runtime user provisioning complete. Starting shell for \033[1;34m${USER
 # info "Setting password for $USER_NAME. You will need this for sudo in the container."
 # sudo passwd "$USER_NAME" || exit
 # echo "$USER_NAME ALL=(ALL:ALL) ALL" | sudo tee /etc/sudoers.d/sudo-users >/dev/null
-#exec sudo -u "$USER_NAME" -H bash
+
 exec sudo --preserve-env=SSH_AUTH_SOCK,DISPLAY -u "$USER_NAME" -H bash
