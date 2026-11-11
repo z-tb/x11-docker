@@ -30,6 +30,42 @@ display_git_branch()
    test ! -z "$b" &&  echo -e "$bcolor $b \033[0;00;0m"
 }
 
+#------------------------------------------------------------------
+# wrapper for vim -- prompt when file is unwritable
+#------------------------------------------------------------------
+vim() {
+    local f
+    local -a bad=()
+
+    for f in "$@"; do
+        [[ "$f" == -* ]] && continue
+        [[ -e "$f" && ! -w "$f" ]] && bad+=("$f")
+    done
+
+    if (( ${#bad[@]} )); then
+        printf "\n\033[1;33mNon-writable files:\033[0m %s\n" "${bad[*]}"
+        printf "Continue? [Enter=yes, s=sudo, n=no]: "
+        read -r choice
+        choice="${choice,,}"
+
+        case "$choice" in
+            ""|y|yes)
+                ;;
+            s)
+                sudo vim "$@"
+                return
+                ;;
+            *)
+                return 1
+                ;;
+        esac
+    fi
+
+    command vim "$@"
+}
+
+
+
 PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin:/home/shell"
 
 test -d ~/bin && PATH="$PATH:~/bin"
@@ -56,6 +92,7 @@ alias dmesg="dmesg -T"
 alias shad='ssh-add  ~/.ssh/*_[erd]*sa'
 alias rm="rm -v"
 alias cp="cp -v"
+alias vi="vim"
 #------------------------------------------------------------------
 # git aliases
 #------------------------------------------------------------------
