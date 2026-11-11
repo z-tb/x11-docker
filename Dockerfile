@@ -8,7 +8,7 @@
 # at runtime, along with runtime user provisioning via an entrypoint script.
 #
 # ----------------------------------------------------------------------
-FROM nvidia/cuda:13.3.0-runtime-ubuntu24.04
+FROM ubuntu:24.04
 
 # Don't prompt for input during build
 ARG DEBIAN_FRONTEND=noninteractive
@@ -19,12 +19,12 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG WITH_KIRO
 ARG WITH_AWS_CLI
 ARG WITH_TOFU
-ARG WITH_CURSOR
 ARG WITH_VSCODE
 ARG WITH_CLAUDE
 ARG WITH_BREW
 ARG WITH_SPACECTL
 ARG WITH_GHCLI
+ARG WITH_DOCKER
 
 # ----------------------------------------------------------------------
 # URLs for external downloads
@@ -32,7 +32,6 @@ ARG WITH_GHCLI
 ARG URL_AWS_CLI="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 ARG URL_SESSION_MANAGER="https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb"
 ARG URL_TOFU="https://get.opentofu.org/install-opentofu.sh"
-ARG URL_CURSOR="https://downloads.cursor.com/production/643ba67cd252e2888e296dd0cf34a0c5d7625b96/linux/x64/deb/amd64/deb/cursor_2.3.34_amd64.deb"
 ARG URL_CLAUDE="https://claude.ai/install.sh"
 
 # ----------------------------------------------------------------------
@@ -121,6 +120,7 @@ RUN apt-get update && apt-get install -y \
    python3-pytest \
    python3-boto3 \
    rsync \
+   software-properties-common \
    sqlite3 \
    strace \
    sudo \
@@ -210,18 +210,6 @@ RUN if [ "${WITH_VSCODE}" = "1" ]; then \
       printf "  %-15s : \033[0;33mSkipped\033[0m\n" "VS Code" > /tmp/build-report/04-vscode; \
     fi
 
-# Install Cursor
-RUN if [ "${WITH_CURSOR}" = "1" ]; then \
-      printf "\033[0;32mInstalling Cursor...\033[0m\n" && \
-      cd /tmp && curl -fsSL --retry 5 --retry-delay 3 --retry-max-time 60  ${URL_CURSOR} -o install.deb && \
-      apt install -y -qq ./install.deb >/dev/null && rm ./install.deb && \
-      printf "\033[0;32mCursor installed OK\033[0m\n" && \
-      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "Cursor" > /tmp/build-report/05-cursor; \
-    else \
-      printf "\033[0;33mSkipping Cursor installation\033[0m\n" && \
-      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Cursor" > /tmp/build-report/05-cursor; \
-    fi
-
 # Install Claude system-wide under /usr/local/bin
 RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
       printf "\033[0;32mInstalling Claude...\033[0m\n" && \
@@ -236,6 +224,25 @@ RUN if [ "${WITH_CLAUDE}" = "1" ]; then \
     else \
       printf "\033[0;33mSkipping Claude installation\033[0m\n" && \
       printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Claude CLI" > /tmp/build-report/06-claude; \
+    fi
+
+# Install Docker Engine & CLI
+RUN if [ "${WITH_DOCKER}" = "1" ]; then \
+      printf "\033[0;32mConfiguring Docker repository and installing Docker...\033[0m\n" && \
+      install -m 0755 -d /etc/apt/keyrings && \
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
+      chmod a+r /etc/apt/keyrings/docker.asc && \
+      UBUNTU_CODENAME=$(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") && \
+      ARCH=$(dpkg --print-architecture) && \
+      printf "Types: deb\nURIs: https://download.docker.com/linux/ubuntu\nSuites: ${UBUNTU_CODENAME}\nComponents: stable\nArchitectures: ${ARCH}\nSigned-By: /etc/apt/keyrings/docker.asc\n" > /etc/apt/sources.list.d/docker.sources && \
+      apt-get update -qq && \
+      apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin >/dev/null && \
+      rm -rf /var/lib/apt/lists/* && \
+      printf "\033[0;32mDocker installed OK\033[0m\n" && \
+      printf "  %-15s : \033[0;32mInstalled OK\033[0m\n" "Docker" > /tmp/build-report/06b-docker; \
+    else \
+      printf "\033[0;33mSkipping Docker installation\033[0m\n" && \
+      printf "  %-15s : \033[0;33mSkipped\033[0m\n" "Docker" > /tmp/build-report/06b-docker; \
     fi
 
 # ----------------------------------------------------------------------
@@ -303,9 +310,7 @@ RUN cd /tmp && \
 # ----------------------------------------------------------------------
 # Chromium Installation & Flag Patching
 # ----------------------------------------------------------------------
-RUN apt-get update -qq && \
-    apt-get install -y -qq software-properties-common wget >/dev/null && \
-    add-apt-repository -y ppa:xtradeb/apps >/dev/null && \
+RUN add-apt-repository -y ppa:xtradeb/apps >/dev/null && \
     apt-get update -qq && \
     apt-get install -y -qq chromium >/dev/null
 

@@ -215,6 +215,44 @@ else
 fi
 
 
+# -----------------------------
+# Dynamic Docker socket permission setup
+# -----------------------------
+DOCKER_SOCK="/var/run/docker.sock"
+
+if [ -S "$DOCKER_SOCK" ]; then
+    info "Docker socket detected at $DOCKER_SOCK"
+    
+    # Extract numerical GID of the mounted socket file
+    DOCKER_SOCK_GID=$(stat -c '%g' "$DOCKER_SOCK")
+    
+    if [ -n "$DOCKER_SOCK_GID" ]; then
+        info "Docker socket GID is $DOCKER_SOCK_GID"
+        
+        # Check if a group with this GID already exists in /etc/group
+        EXISTING_GROUP=$(getent group "$DOCKER_SOCK_GID" | cut -d: -f1 || true)
+        
+        if [ -n "$EXISTING_GROUP" ]; then
+            TARGET_DOCKER_GROUP="$EXISTING_GROUP"
+            info "Using existing group '$TARGET_DOCKER_GROUP' for GID $DOCKER_SOCK_GID"
+        else
+            TARGET_DOCKER_GROUP="docker-host"
+            info "Creating group '$TARGET_DOCKER_GROUP' with GID $DOCKER_SOCK_GID"
+            groupadd -g "$DOCKER_SOCK_GID" "$TARGET_DOCKER_GROUP" || true
+        fi
+        
+        # Add user to the target docker group
+        if usermod -aG "$TARGET_DOCKER_GROUP" "$USER_NAME"; then
+            success "[DOCKER] Added \e[1;34m$USER_NAME\e[0m to group '$TARGET_DOCKER_GROUP' (GID $DOCKER_SOCK_GID)"
+        else
+            warn "[DOCKER] Failed to add $USER_NAME to group '$TARGET_DOCKER_GROUP'"
+        fi
+    fi
+else
+    info "No Docker socket found at $DOCKER_SOCK (standard run mode)"
+fi
+
+
 
 # -----------------------------
 # Append custom bashrc additions

@@ -54,6 +54,11 @@ SRC_HOME         ?= ./dockerhome
 DOCKER_GID       := $(shell getent group docker | cut -d: -f3)
 
 # ----------------------------------------------------------------------
+# Docker group for socket forwarding - if using Docker inside container
+# ----------------------------------------------------------------------
+DOCKER_NETWORK   := kironet
+
+# ----------------------------------------------------------------------
 # Optional installation flags
 # Can override in .make
 # ----------------------------------------------------------------------
@@ -66,6 +71,7 @@ WITH_CLAUDE      ?= 0
 WITH_BREW        ?= 0
 WITH_SPACECTL    ?= 0
 WITH_GHCLI       ?= 0
+WITH_DOCKER      ?= 1
 
 # ----------------------------------------------------------------------
 # supplemental groups for runtime user add to the container user groups
@@ -78,9 +84,22 @@ done | sed 's/,$$//')
 
 
 # ----------------------------------------------------------------------
-# Set your Docker Hub username, or override on CLI: make push DOCKER_USER=foo
+# Set your Docker Hub username (for rundock target), or override
+# on CLI: make push DOCKER_USER=foo
 # ----------------------------------------------------------------------
 DOCKER_USER ?= $(USER_NAME)
+
+
+.PHONY: host-setup-docker-network run rundock
+
+# Creates the network if missing and applies the host firewall rules that
+# isolate it from RFC1918. If the network exists, the script prompts to clear
+# and re-apply the rules. Add extra flags with DOCKER_NETWORK_ARGS, for example
+# DOCKER_NETWORK_ARGS="--allow 192.168.1.53/32" to permit an internal DNS server.
+host-setup-docker-network:
+	@if [ -n "$(strip $(DOCKER_NETWORK))" ]; then \
+		sudo python3 ./usr/local/bin/host-setup-docker-network.py "$(DOCKER_NETWORK)" $(DOCKER_NETWORK_ARGS); \
+	fi
 
 # ----------------------------------------------------------------------
 # Build the Docker image using cached layers (normal build)
@@ -105,6 +124,7 @@ build: info
 		--build-arg WITH_BREW=$(WITH_BREW) \
 		--build-arg WITH_SPACECTL=$(WITH_SPACECTL) \
 		--build-arg WITH_GHCLI=$(WITH_GHCLI) \
+		--build-arg WITH_DOCKER=$(WITH_DOCKER) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 # ----------------------------------------------------------------------
@@ -112,7 +132,7 @@ build: info
 # Useful when Dockerfile changes or when forcing a clean rebuild.
 # ----------------------------------------------------------------------
 rebuild: info
-	docker build --no-cache --progress=plain\
+	docker build --pull --no-cache --progress=plain\
 		--build-arg USER_UID=$(USER_UID) \
 		--build-arg USER_GROUP_GID=$(USER_GROUP_GID) \
 		--build-arg USER_GROUP_NAME=$(USER_GROUP_NAME) \
@@ -130,6 +150,7 @@ rebuild: info
 		--build-arg WITH_BREW=$(WITH_BREW) \
 		--build-arg WITH_SPACECTL=$(WITH_SPACECTL) \
 		--build-arg WITH_GHCLI=$(WITH_GHCLI) \
+		--build-arg WITH_DOCKER=$(WITH_DOCKER) \
 		-t $(IMAGE_NAME):latest -f ./Dockerfile .
 
 
@@ -155,7 +176,10 @@ connect:
 	docker exec -it $(CONTAINER_NAME) /bin/bash
 
 
-run: info
+# ----------------------------------------------------------------------
+# Run the container and start the interactive session for Kiro
+# ----------------------------------------------------------------------
+run: info host-setup-docker-network
 	@# Check if the base directory exists and print the requested colored messages
 	@if [ ! -d "$(SRC_HOME)" ]; then \
 		echo "\033[1;33mCreating directory $(SRC_HOME)\033[0m"; \
@@ -170,6 +194,7 @@ run: info
 	$(if $(SSH_AUTH_SOCK),,@echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent.")
 
 	docker run -it --rm --shm-size=1g \
+		$(if $(strip $(DOCKER_NETWORK)),--network "$(DOCKER_NETWORK)") \
 		--ipc=host \
 		--name "$(CONTAINER_NAME)" \
 		--hostname "$(IMAGE_NAME)" \
@@ -196,7 +221,16 @@ run: info
 		--volume /dev/dri:/dev/dri \
 		"$(IMAGE_NAME)"
 
-rundock:
+
+
+# ----------------------------------------------------------------------
+# Run the container with DockerInDocker capability and start
+# the interactive session for Kiro. 
+#
+# NOTE: Not intended as a long-term session. This exposes a considerable
+# amount of host-based root access to the container
+# ----------------------------------------------------------------------
+rundock: info host-setup-docker-network
 	@# Check if the base directory exists and print the requested colored messages
 	@if [ ! -d "$(SRC_HOME)" ]; then \
 		echo "\033[1;33mCreating directory $(SRC_HOME)\033[0m"; \
@@ -204,6 +238,7 @@ rundock:
 		echo "\033[1;32mDirectory $(SRC_HOME) already exists\033[0m"; \
 	fi
 
+	# Create some needed home directories in the container
 	@mkdir -p "$(SRC_HOME)/.kiro" "$(SRC_HOME)/bash" "$(SRC_HOME)/.config/Kiro" "$(SRC_HOME)/.ssh" ./scratch
 
 	@# Detect SSH Agent on the host and construct flags natively in Make variables
@@ -211,6 +246,7 @@ rundock:
 	$(if $(SSH_AUTH_SOCK),,@echo "⚠️ SSH_AUTH_SOCK not set on host; mount ~/.ssh manually or start an ssh-agent.")
 
 	docker run -it --rm --shm-size=1g \
+		$(if $(strip $(DOCKER_NETWORK)),--network "$(DOCKER_NETWORK)") \
 		--ipc=host \
 		--name "$(CONTAINER_NAME)" \
 		--hostname "$(IMAGE_NAME)" \
@@ -274,7 +310,7 @@ info:
 	@echo "WITH_CLAUDE=$(WITH_CLAUDE)"
 	@echo "WITH_BREW=$(WITH_BREW)"
 	@echo "WITH_SPACECTL=$(WITH_SPACECTL)"
-	@echo "WITH_GHCLI=$(WITH_GHCLI)"
+	@echo "WITH_DOCKER=$(WITH_DOCKER)"
 	@echo
 
 
